@@ -6,8 +6,8 @@
   <title>Jogo da Forca PWA P2P</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2c3e50">
-  <!-- Biblioteca PeerJS -->
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <!-- Biblioteca PeerJS em CDN Confiável -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
   <style>
     * { 
       box-sizing: border-box; 
@@ -76,12 +76,12 @@
       margin-bottom: 12px; 
     }
     .room-code-display {
-      font-size: 36px;
+      font-size: 38px;
       font-weight: bold;
       letter-spacing: 6px;
       color: #27ae60;
       background: #e8f8f5;
-      padding: 12px;
+      padding: 15px;
       border-radius: 8px;
       border: 2px dashed #27ae60;
       margin: 15px 0;
@@ -131,35 +131,3 @@
       flex: 1;
       max-width: 38px;
       margin-bottom: 0;
-      transition: background 0.2s, transform 0.1s;
-    }
-    .key-btn:active {
-      transform: scale(0.95);
-    }
-    .key-btn:disabled {
-      background-color: #bdc3c7 !important;
-      color: #7f8c8d;
-      cursor: not-allowed;
-      transform: none;
-    }
-  </style>
-</head>
-<body>
-
-  <!-- TELA 1: CONFIGURAÇÃO DE SALA E PAREAMENTO -->
-  <div class="card" id="setup-screen">
-    <h1>Jogo da Forca PWA</h1>
-    <p>Conexão P2P por Código Numérico</p>
-    
-    <div id="initial-actions">
-      <label for="total-rounds">Quantidade de Rodadas:</label>
-      <input type="number" id="total-rounds" value="5" min="1" max="20">
-
-      <button id="btn-create" class="secondary">Criar Sala (Jogador 1)</button>
-      <button id="btn-join-mode">Entrar em uma Sala (Jogador 2)</button>
-    </div>
-
-    <!-- EXIBIÇÃO DO CÓDIGO (JOGADOR 1) -->
-    <div id="host-setup" class="hidden">
-      <h3>Sua Sala foi criada!</h3>
-      <p>Informe este código para o Jog
