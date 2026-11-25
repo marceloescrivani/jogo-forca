@@ -6,8 +6,8 @@
   <title>Jogo da Forca PWA P2P</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2c3e50">
-  <!-- Biblioteca PeerJS em CDN Confiável -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+  <!-- Carregamento do PeerJS com tratamento de fallback -->
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     * { 
       box-sizing: border-box; 
@@ -131,3 +131,159 @@
       flex: 1;
       max-width: 38px;
       margin-bottom: 0;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .key-btn:active {
+      transform: scale(0.95);
+    }
+    .key-btn:disabled {
+      background-color: #bdc3c7 !important;
+      color: #7f8c8d;
+      cursor: not-allowed;
+      transform: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TELA 1: CONFIGURAÇÃO DE SALA E PAREAMENTO -->
+  <div class="card" id="setup-screen">
+    <h1>Jogo da Forca PWA</h1>
+    <p>Conexão P2P por Código Numérico</p>
+    
+    <div id="initial-actions">
+      <label for="total-rounds">Quantidade de Rodadas:</label>
+      <input type="number" id="total-rounds" value="5" min="1" max="20">
+
+      <button id="btn-create" class="secondary">Criar Sala (Jogador 1)</button>
+      <button id="btn-join-mode">Entrar em uma Sala (Jogador 2)</button>
+    </div>
+
+    <!-- EXIBIÇÃO DO CÓDIGO (JOGADOR 1) -->
+    <div id="host-setup" class="hidden">
+      <h3>Sua Sala foi criada!</h3>
+      <p>Informe este código para o Jogador 2:</p>
+      <div class="room-code-display" id="room-code-num">------</div>
+      <p id="connection-status" style="font-size: 13px; color: #7f8c8d;">Aguardando a conexão do Jogador 2...</p>
+    </div>
+
+    <!-- ENTRADA DO CÓDIGO (JOGADOR 2) -->
+    <div id="client-setup" class="hidden">
+      <h3>Entrar na Sala</h3>
+      <p>Digite o código de 6 dígitos gerado pelo Jogador 1:</p>
+      <input type="number" id="input-room-code" placeholder="Ex: 123456" maxlength="6">
+      <button id="btn-connect-room">Conectar e Jogar</button>
+      <button id="btn-cancel" style="background-color: #95a5a6;">Voltar</button>
+    </div>
+  </div>
+
+  <!-- TELA 2: PRINCIPAL DO JOGO -->
+  <div class="card hidden" id="game-screen">
+    <div class="status-bar">
+      <span>Rodada: <span id="current-round">1</span>/<span id="max-rounds">5</span></span>
+      <span>Placar: J1 (<span id="score-j1">0</span>) x (<span id="score-j2">0</span>) J2</span>
+    </div>
+
+    <div id="role-turn-info" style="font-weight: 600; color: #2980b9; margin-bottom: 10px;"></div>
+
+    <!-- PAINEL DE QUEM DEFINE A PALAVRA -->
+    <div id="maker-section">
+      <h3>Digite a palavra secreta:</h3>
+      <input type="text" id="secret-word-input" placeholder="Digite aqui..." autocomplete="off">
+      <button id="btn-set-word">Enviar Palavra</button>
+    </div>
+
+    <!-- PAINEL DE QUEM ADIVINHA (COM TECLADO VIRTUAL) -->
+    <div id="guesser-section" class="hidden">
+      <div class="chances">Erros restantes: <span id="errors-left">5</span>/5</div>
+      
+      <div class="word-display" id="word-display"></div>
+
+      <!-- TECLADO VIRTUAL QWERTY -->
+      <div class="keyboard" id="keyboard">
+        <div class="keyboard-row">
+          <button class="key-btn" data-key="Q">Q</button>
+          <button class="key-btn" data-key="W">W</button>
+          <button class="key-btn" data-key="E">E</button>
+          <button class="key-btn" data-key="R">R</button>
+          <button class="key-btn" data-key="T">T</button>
+          <button class="key-btn" data-key="Y">Y</button>
+          <button class="key-btn" data-key="U">U</button>
+          <button class="key-btn" data-key="I">I</button>
+          <button class="key-btn" data-key="O">O</button>
+          <button class="key-btn" data-key="P">P</button>
+        </div>
+        <div class="keyboard-row">
+          <button class="key-btn" data-key="A">A</button>
+          <button class="key-btn" data-key="S">S</button>
+          <button class="key-btn" data-key="D">D</button>
+          <button class="key-btn" data-key="F">F</button>
+          <button class="key-btn" data-key="G">G</button>
+          <button class="key-btn" data-key="H">H</button>
+          <button class="key-btn" data-key="J">J</button>
+          <button class="key-btn" data-key="K">K</button>
+          <button class="key-btn" data-key="L">L</button>
+          <button class="key-btn" data-key="Ç">Ç</button>
+        </div>
+        <div class="keyboard-row">
+          <button class="key-btn" data-key="Z">Z</button>
+          <button class="key-btn" data-key="X">X</button>
+          <button class="key-btn" data-key="C">C</button>
+          <button class="key-btn" data-key="V">V</button>
+          <button class="key-btn" data-key="B">B</button>
+          <button class="key-btn" data-key="N">N</button>
+          <button class="key-btn" data-key="M">M</button>
+        </div>
+      </div>
+
+      <div class="used-letters">Letras tentadas: <span id="used-letters-list">-</span></div>
+    </div>
+  </div>
+
+  <script>
+    // ESTADO GLOBAL DO JOGO
+    let totalRounds = 5;
+    let currentRound = 1;
+    let scoreJ1 = 0;
+    let scoreJ2 = 0;
+    let currentMaker = 1;
+    let myPlayerNumber = 1;
+    let secretWord = "";
+    let guessedLetters = [];
+    let errorCount = 0;
+    const MAX_ERRORS = 5;
+
+    // CONEXÃO PEERJS
+    let peer = null;
+    let conn = null;
+
+    // ELEMENTOS DOM
+    const setupScreen = document.getElementById('setup-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const initialActions = document.getElementById('initial-actions');
+    const hostSetup = document.getElementById('host-setup');
+    const clientSetup = document.getElementById('client-setup');
+    const btnCreate = document.getElementById('btn-create');
+    const btnJoinMode = document.getElementById('btn-join-mode');
+    const btnConnectRoom = document.getElementById('btn-connect-room');
+    const btnCancel = document.getElementById('btn-cancel');
+    const roomCodeNum = document.getElementById('room-code-num');
+    const connectionStatus = document.getElementById('connection-status');
+    const inputRoomCode = document.getElementById('input-room-code');
+    const btnSetWord = document.getElementById('btn-set-word');
+    const secretWordInput = document.getElementById('secret-word-input');
+    const makerSection = document.getElementById('maker-section');
+    const guesserSection = document.getElementById('guesser-section');
+    const wordDisplay = document.getElementById('word-display');
+    const roleTurnInfo = document.getElementById('role-turn-info');
+    const errorsLeftSpan = document.getElementById('errors-left');
+    const usedLettersList = document.getElementById('used-letters-list');
+
+    function generateNumericCode() {
+      return Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
+    // --- FLUXO JOGADOR 1 (CRIAR SALA) ---
+    btnCreate.addEventListener('click', () => {
+      myPlayerNumber = 1;
+      totalRounds =
