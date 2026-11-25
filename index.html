@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jogo da Forca PWA P2P</title>
   <meta name="theme-color" content="#2c3e50">
-  <!-- Biblioteca externa para geração do QR Code local -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background-color: #f4f7f6; color: #333; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
@@ -19,10 +17,12 @@
     .letter-box { width: 36px; height: 42px; border-bottom: 3px solid #2c3e50; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; text-transform: uppercase; background: #eef2f5; border-radius: 4px 4px 0 0; }
     input[type="text"], input[type="number"], textarea { width: 100%; padding: 10px; font-size: 15px; border: 2px solid #bdc3c7; border-radius: 6px; text-align: center; margin-bottom: 12px; }
     textarea { font-family: monospace; font-size: 11px; resize: none; word-break: break-all; }
-    .qrcode-box { display: flex; justify-content: center; margin: 15px 0; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px; }
     button { background-color: #27ae60; color: white; border: none; padding: 12px; font-size: 16px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; transition: background 0.2s; margin-bottom: 10px; }
     button:hover { background-color: #219150; }
     button.secondary { background-color: #2980b9; }
+    button.secondary:hover { background-color: #1f6391; }
+    button.copy-btn { background-color: #8e44ad; margin-bottom: 15px; }
+    button.copy-btn:hover { background-color: #732d91; }
     .chances { color: #c0392b; font-weight: bold; font-size: 18px; margin-bottom: 15px; }
     .hidden { display: none !important; }
     .used-letters { font-size: 14px; color: #7f8c8d; margin-top: 10px; word-break: break-all; }
@@ -37,7 +37,7 @@
   <!-- TELA DE PAREAMENTO -->
   <div class="card" id="setup-screen">
     <h1>Jogo da Forca PWA</h1>
-    <p>Conexão Direta via QR Code ou Código</p>
+    <p>Conexão Direta via Código SDP</p>
     
     <div id="initial-actions">
       <label for="total-rounds">Quantidade de Rodadas:</label>
@@ -47,34 +47,30 @@
       <button id="btn-join-mode" type="button">Entrar em uma Sala (Jogador 2)</button>
     </div>
 
-    <!-- JOGADOR 1: EXIBE O QR CODE E O CÓDIGO -->
+    <!-- JOGADOR 1: EXIBE A STRING E O BOTÃO DE COPIAR -->
     <div id="host-setup" class="hidden">
       <h3>Sua Sala foi Criada!</h3>
-      <p id="host-status-msg">Gerando QR Code e Código de Conexão...</p>
+      <p id="host-status-msg">Gerando código de conexão...</p>
       
-      <!-- QR Code -->
-      <div id="qrcode-offer" class="qrcode-box"></div>
-
-      <!-- Código em Texto (Opção alternativa) -->
-      <p style="font-size: 12px; color: #7f8c8d; margin-bottom: 4px;">Ou copie o código em texto:</p>
-      <textarea id="host-code-out" readonly rows="3" onclick="this.select()"></textarea>
+      <textarea id="host-code-out" readonly rows="4" onclick="this.select()"></textarea>
+      <button id="btn-copy-host" type="button" class="copy-btn">Copiar Código</button>
       
       <p style="margin-top: 10px; font-size: 13px;">Cole abaixo o código de resposta do Jogador 2:</p>
-      <textarea id="host-code-in" rows="3" placeholder="Cole o código do Jogador 2 aqui..."></textarea>
+      <textarea id="host-code-in" rows="4" placeholder="Cole o código do Jogador 2 aqui..."></textarea>
       <button id="btn-host-connect" type="button">Conectar e Jogar</button>
     </div>
 
     <!-- JOGADOR 2: ENTRADA E GERAÇÃO DA RESPOSTA -->
     <div id="client-setup" class="hidden">
       <h3>Entrar na Sala</h3>
-      <p>1. Cole o código gerado ou lido pelo Jogador 1:</p>
-      <textarea id="client-code-in" rows="3" placeholder="Cole o código do Jogador 1 aqui..."></textarea>
+      <p>1. Cole o código enviado pelo Jogador 1:</p>
+      <textarea id="client-code-in" rows="4" placeholder="Cole o código do Jogador 1 aqui..."></textarea>
       <button id="btn-client-generate" type="button">Gerar Minha Resposta</button>
 
       <div id="client-response-box" class="hidden" style="margin-top: 15px;">
-        <p>2. Mostre este QR Code ou envie o código para o Jogador 1:</p>
-        <div id="qrcode-answer" class="qrcode-box"></div>
-        <textarea id="client-code-out" readonly rows="3" onclick="this.select()"></textarea>
+        <p>2. Copie e envie este código de volta para o Jogador 1:</p>
+        <textarea id="client-code-out" readonly rows="4" onclick="this.select()"></textarea>
+        <button id="btn-copy-client" type="button" class="copy-btn">Copiar Código de Resposta</button>
       </div>
       <button id="btn-cancel" type="button" style="background-color: #95a5a6; margin-top: 10px;">Voltar</button>
     </div>
@@ -159,16 +155,16 @@
       const btnCancel = document.getElementById('btn-cancel');
 
       const hostStatusMsg = document.getElementById('host-status-msg');
-      const qrcodeOfferDiv = document.getElementById('qrcode-offer');
       const hostCodeOut = document.getElementById('host-code-out');
+      const btnCopyHost = document.getElementById('btn-copy-host');
       const hostCodeIn = document.getElementById('host-code-in');
       const btnHostConnect = document.getElementById('btn-host-connect');
 
       const clientCodeIn = document.getElementById('client-code-in');
       const btnClientGenerate = document.getElementById('btn-client-generate');
       const clientResponseBox = document.getElementById('client-response-box');
-      const qrcodeAnswerDiv = document.getElementById('qrcode-answer');
       const clientCodeOut = document.getElementById('client-code-out');
+      const btnCopyClient = document.getElementById('btn-copy-client');
 
       const btnSetWord = document.getElementById('btn-set-word');
       const secretWordInput = document.getElementById('secret-word-input');
@@ -179,19 +175,25 @@
       const errorsLeftSpan = document.getElementById('errors-left');
       const usedLettersList = document.getElementById('used-letters-list');
 
-      function renderQRCode(container, text) {
-        container.innerHTML = "";
-        if (window.QRCode) {
-          new QRCode(container, {
-            text: text,
-            width: 180,
-            height: 180,
-            colorDark: "#2c3e50",
-            colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.L
-          });
+      // Função utilitária para copiar texto para a área de transferência
+      async function copyToClipboard(textareaElement, buttonElement) {
+        try {
+          textareaElement.select();
+          await navigator.clipboard.writeText(textareaElement.value);
+          const originalText = buttonElement.textContent;
+          buttonElement.textContent = "Copiado com Sucesso! ✓";
+          buttonElement.style.backgroundColor = "#27ae60";
+          setTimeout(() => {
+            buttonElement.textContent = originalText;
+            buttonElement.style.backgroundColor = "#8e44ad";
+          }, 2000);
+        } catch (err) {
+          alert("Selecione o texto manualmente e copie.");
         }
       }
+
+      btnCopyHost.addEventListener('click', () => copyToClipboard(hostCodeOut, btnCopyHost));
+      btnCopyClient.addEventListener('click', () => copyToClipboard(clientCodeOut, btnCopyClient));
 
       btnCreate.addEventListener('click', async (e) => {
         e.preventDefault();
@@ -209,19 +211,15 @@
 
         pc.onicecandidate = (event) => {
           if (!event.candidate) {
-            hostStatusMsg.textContent = "Escanear QR Code ou copiar código abaixo:";
-            const offerStr = btoa(JSON.stringify(pc.localDescription));
-            hostCodeOut.value = offerStr;
-            renderQRCode(qrcodeOfferDiv, offerStr);
+            hostStatusMsg.textContent = "Copie e envie o código abaixo para o Jogador 2:";
+            hostCodeOut.value = btoa(JSON.stringify(pc.localDescription));
           }
         };
 
         setTimeout(() => {
           if (pc.localDescription && hostCodeOut.value === "") {
-            hostStatusMsg.textContent = "Escanear QR Code ou copiar código abaixo:";
-            const offerStr = btoa(JSON.stringify(pc.localDescription));
-            hostCodeOut.value = offerStr;
-            renderQRCode(qrcodeOfferDiv, offerStr);
+            hostStatusMsg.textContent = "Copie e envie o código abaixo para o Jogador 2:";
+            hostCodeOut.value = btoa(JSON.stringify(pc.localDescription));
           }
         }, 800);
       });
@@ -229,7 +227,7 @@
       btnHostConnect.addEventListener('click', async (e) => {
         e.preventDefault();
         const val = hostCodeIn.value.trim();
-        if (!val) { alert("Cole o código de resposta!"); return; }
+        if (!val) { alert("Cole o código de resposta do Jogador 2!"); return; }
         try {
           const answer = JSON.parse(atob(val));
           await pc.setRemoteDescription(new RTCSessionDescription(answer));
@@ -252,7 +250,7 @@
       btnClientGenerate.addEventListener('click', async (e) => {
         e.preventDefault();
         const val = clientCodeIn.value.trim();
-        if (!val) { alert("Cole o código do Jogador 1!"); return; }
+        if (!val) { alert("Cole o código enviado pelo Jogador 1!"); return; }
 
         try {
           pc.ondatachannel = (event) => {
@@ -269,18 +267,14 @@
           pc.onicecandidate = (event) => {
             if (!event.candidate) {
               clientResponseBox.classList.remove('hidden');
-              const answerStr = btoa(JSON.stringify(pc.localDescription));
-              clientCodeOut.value = answerStr;
-              renderQRCode(qrcodeAnswerDiv, answerStr);
+              clientCodeOut.value = btoa(JSON.stringify(pc.localDescription));
             }
           };
 
           setTimeout(() => {
             if (pc.localDescription && clientCodeOut.value === "") {
               clientResponseBox.classList.remove('hidden');
-              const answerStr = btoa(JSON.stringify(pc.localDescription));
-              clientCodeOut.value = answerStr;
-              renderQRCode(qrcodeAnswerDiv, answerStr);
+              clientCodeOut.value = btoa(JSON.stringify(pc.localDescription));
             }
           }, 800);
         } catch (err) { alert("Código do Jogador 1 inválido."); }
