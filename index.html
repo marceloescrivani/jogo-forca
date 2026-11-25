@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jogo da Forca PWA P2P</title>
+  <title>Jogo da Forca PWA - Passa & Joga</title>
   <meta name="theme-color" content="#2c3e50">
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -11,18 +11,14 @@
     .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 480px; text-align: center; position: relative; }
     h1 { color: #2c3e50; margin-top: 0; font-size: 24px; }
     p { margin-bottom: 15px; color: #666; font-size: 14px; }
-    label { display: block; margin-bottom: 5px; font-weight: 600; }
     .status-bar { display: flex; justify-content: space-between; background: #ecf0f1; padding: 10px 15px; border-radius: 8px; font-weight: bold; margin-bottom: 15px; }
     .word-display { display: flex; justify-content: center; gap: 8px; margin: 20px 0; flex-wrap: wrap; }
     .letter-box { width: 36px; height: 42px; border-bottom: 3px solid #2c3e50; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; text-transform: uppercase; background: #eef2f5; border-radius: 4px 4px 0 0; }
-    input[type="text"], input[type="number"], textarea { width: 100%; padding: 10px; font-size: 15px; border: 2px solid #bdc3c7; border-radius: 6px; text-align: center; margin-bottom: 12px; }
-    textarea { font-family: monospace; font-size: 11px; resize: none; word-break: break-all; }
+    input[type="text"], input[type="password"] { width: 100%; padding: 12px; font-size: 18px; border: 2px solid #bdc3c7; border-radius: 6px; text-align: center; margin-bottom: 12px; text-transform: uppercase; }
     button { background-color: #27ae60; color: white; border: none; padding: 12px; font-size: 16px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; transition: background 0.2s; margin-bottom: 10px; }
     button:hover { background-color: #219150; }
-    button.secondary { background-color: #2980b9; }
-    button.secondary:hover { background-color: #1f6391; }
-    button.copy-btn { background-color: #8e44ad; margin-bottom: 15px; }
-    button.copy-btn:hover { background-color: #732d91; }
+    button.danger { background-color: #c0392b; }
+    button.danger:hover { background-color: #a93226; }
     .chances { color: #c0392b; font-weight: bold; font-size: 18px; margin-bottom: 15px; }
     .hidden { display: none !important; }
     .used-letters { font-size: 14px; color: #7f8c8d; margin-top: 10px; word-break: break-all; }
@@ -33,96 +29,56 @@
     .key-btn { background-color: #2c3e50; color: white; border: none; padding: 10px 0; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; flex: 1; max-width: 38px; margin-bottom: 0; }
     .key-btn:disabled { background-color: #bdc3c7 !important; color: #7f8c8d; cursor: not-allowed; opacity: 0.6; }
 
-    /* POPUP DO X VERMELHO */
+    /* ANIMACAO DO X VERMELHO */
     .error-popup {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      font-size: 100px;
+      font-size: 110px;
       color: #e74c3c;
       font-weight: bold;
       pointer-events: none;
       z-index: 10;
-      animation: popFade 1s forwards;
+      animation: popFade 0.9s forwards;
     }
 
     @keyframes popFade {
-      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
       30% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
       70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-      100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(1.4); }
     }
   </style>
 </head>
 <body>
 
-  <!-- TELA DE PAREAMENTO -->
-  <div class="card" id="setup-screen">
-    <h1>Jogo da Forca PWA</h1>
-    <p>Conexão Direta via Código SDP</p>
-    
-    <div id="initial-actions">
-      <label for="total-rounds">Quantidade de Rodadas:</label>
-      <input type="number" id="total-rounds" value="5" min="1" max="20">
-
-      <button id="btn-create" type="button" class="secondary">Criar Sala (Jogador 1)</button>
-      <button id="btn-join-mode" type="button">Entrar em uma Sala (Jogador 2)</button>
-    </div>
-
-    <!-- JOGADOR 1 -->
-    <div id="host-setup" class="hidden">
-      <h3>Sua Sala foi Criada!</h3>
-      <p id="host-status-msg">Gerando código de conexão...</p>
-      
-      <textarea id="host-code-out" readonly rows="4" onclick="this.select()"></textarea>
-      <button id="btn-copy-host" type="button" class="copy-btn">Copiar Código</button>
-      
-      <p style="margin-top: 10px; font-size: 13px;">Cole abaixo o código de resposta do Jogador 2:</p>
-      <textarea id="host-code-in" rows="4" placeholder="Cole o código do Jogador 2 aqui..."></textarea>
-      <button id="btn-host-connect" type="button">Conectar e Jogar</button>
-    </div>
-
-    <!-- JOGADOR 2 -->
-    <div id="client-setup" class="hidden">
-      <h3>Entrar na Sala</h3>
-      <p>1. Cole o código enviado pelo Jogador 1:</p>
-      <textarea id="client-code-in" rows="4" placeholder="Cole o código do Jogador 1 aqui..."></textarea>
-      <button id="btn-client-generate" type="button">Gerar Minha Resposta</button>
-
-      <div id="client-response-box" class="hidden" style="margin-top: 15px;">
-        <p>2. Copie e envie este código de volta para o Jogador 1:</p>
-        <textarea id="client-code-out" readonly rows="4" onclick="this.select()"></textarea>
-        <button id="btn-copy-client" type="button" class="copy-btn">Copiar Código de Resposta</button>
-      </div>
-      <button id="btn-cancel" type="button" style="background-color: #95a5a6; margin-top: 10px;">Voltar</button>
-    </div>
-  </div>
-
-  <!-- TELA DO JOGO -->
-  <div class="card hidden" id="game-screen">
-    <!-- POPUP PARA EXIBIR O X VERMELHO -->
+  <div class="card" id="main-card">
     <div id="error-popup-container"></div>
 
+    <h1>Jogo da Forca (Passa & Joga)</h1>
+
+    <!-- BARRA DE PLACAR E RODADA -->
     <div class="status-bar">
-      <span>Rodada: <span id="current-round">1</span>/<span id="max-rounds">5</span></span>
+      <span>Rodada <span id="current-round">1</span></span>
       <span>Placar: J1 (<span id="score-j1">0</span>) x (<span id="score-j2">0</span>) J2</span>
     </div>
 
-    <div id="role-turn-info" style="font-weight: 600; color: #2980b9; margin-bottom: 10px;"></div>
+    <div id="role-turn-info" style="font-weight: 600; color: #2980b9; margin-bottom: 12px; font-size: 15px;"></div>
 
-    <!-- SEÇÃO DE QUEM DIGITA A PALAVRA -->
+    <!-- ETAPA 1: DIGITAR PALAVRA -->
     <div id="maker-section">
-      <h3>Digite a palavra secreta:</h3>
-      <input type="text" id="secret-word-input" placeholder="Digite aqui..." autocomplete="off">
-      <button id="btn-set-word" type="button">Enviar Palavra</button>
+      <p style="font-size: 13px; color: #555;">Digite a palavra secreta abaixo e passe o smartphone:</p>
+      <input type="password" id="secret-word-input" placeholder="PALAVRA SECRETA" autocomplete="off">
+      <button id="btn-set-word" type="button">Ocultar e Passar Aparelho</button>
     </div>
 
-    <!-- SEÇÃO DE QUEM ADIVINHA -->
+    <!-- ETAPA 2: ADIVINHAR PALAVRA -->
     <div id="guesser-section" class="hidden">
       <div class="chances">Erros restantes: <span id="errors-left">5</span>/5</div>
       <div class="word-display" id="word-display"></div>
 
+      <!-- TECLADO VIRTUAL QWERTY -->
       <div class="keyboard" id="keyboard">
         <div class="keyboard-row">
           <button class="key-btn" type="button" data-key="Q">Q</button>
@@ -161,273 +117,97 @@
 
       <div class="used-letters">Letras tentadas: <span id="used-letters-list">-</span></div>
     </div>
+
+    <!-- BOTAO DE ENCERRAMENTO -->
+    <button id="btn-end-game" type="button" class="danger" style="margin-top: 20px;">Encerrar Jogo e Ver Vencedor</button>
   </div>
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      let totalRounds = 5, currentRound = 1, scoreJ1 = 0, scoreJ2 = 0, currentMaker = 1, myPlayerNumber = 1;
-      let secretWord = "", guessedLetters = [], errorCount = 0;
+      let currentRound = 1;
+      let scoreJ1 = 0;
+      let scoreJ2 = 0;
+      let currentMaker = 1; // 1: J1 escolhe / J2 adivinha | 2: J2 escolhe / J1 adivinha
+      let secretWord = "";
+      let guessedLetters = [];
+      let errorCount = 0;
       const MAX_ERRORS = 5;
 
-      let pc = new RTCPeerConnection({ iceServers: [] });
-      let dataChannel = null;
-
-      const setupScreen = document.getElementById('setup-screen');
-      const gameScreen = document.getElementById('game-screen');
-      const initialActions = document.getElementById('initial-actions');
-      const hostSetup = document.getElementById('host-setup');
-      const clientSetup = document.getElementById('client-setup');
-
-      const btnCreate = document.getElementById('btn-create');
-      const btnJoinMode = document.getElementById('btn-join-mode');
-      const btnCancel = document.getElementById('btn-cancel');
-
-      const hostStatusMsg = document.getElementById('host-status-msg');
-      const hostCodeOut = document.getElementById('host-code-out');
-      const btnCopyHost = document.getElementById('btn-copy-host');
-      const hostCodeIn = document.getElementById('host-code-in');
-      const btnHostConnect = document.getElementById('btn-host-connect');
-
-      const clientCodeIn = document.getElementById('client-code-in');
-      const btnClientGenerate = document.getElementById('btn-client-generate');
-      const clientResponseBox = document.getElementById('client-response-box');
-      const clientCodeOut = document.getElementById('client-code-out');
-      const btnCopyClient = document.getElementById('btn-copy-client');
-
-      const btnSetWord = document.getElementById('btn-set-word');
-      const secretWordInput = document.getElementById('secret-word-input');
+      const roleTurnInfo = document.getElementById('role-turn-info');
       const makerSection = document.getElementById('maker-section');
       const guesserSection = document.getElementById('guesser-section');
+      const secretWordInput = document.getElementById('secret-word-input');
+      const btnSetWord = document.getElementById('btn-set-word');
+      const btnEndGame = document.getElementById('btn-end-game');
       const wordDisplay = document.getElementById('word-display');
-      const roleTurnInfo = document.getElementById('role-turn-info');
       const errorsLeftSpan = document.getElementById('errors-left');
       const usedLettersList = document.getElementById('used-letters-list');
       const errorPopupContainer = document.getElementById('error-popup-container');
 
-      // Copiar código para área de transferência
-      async function copyToClipboard(textareaElement, buttonElement) {
-        try {
-          textareaElement.select();
-          await navigator.clipboard.writeText(textareaElement.value);
-          const originalText = buttonElement.textContent;
-          buttonElement.textContent = "Copiado com Sucesso! ✓";
-          buttonElement.style.backgroundColor = "#27ae60";
-          setTimeout(() => {
-            buttonElement.textContent = originalText;
-            buttonElement.style.backgroundColor = "#8e44ad";
-          }, 2000);
-        } catch (err) {
-          alert("Selecione o texto manualmente e copie.");
-        }
-      }
-
-      btnCopyHost.addEventListener('click', () => copyToClipboard(hostCodeOut, btnCopyHost));
-      btnCopyClient.addEventListener('click', () => copyToClipboard(clientCodeOut, btnCopyClient));
-
-      btnCreate.addEventListener('click', async (e) => {
-        e.preventDefault();
-        myPlayerNumber = 1;
-        totalRounds = parseInt(document.getElementById('total-rounds').value) || 5;
-        
-        initialActions.classList.add('hidden');
-        hostSetup.classList.remove('hidden');
-
-        dataChannel = pc.createDataChannel('gameChannel');
-        bindChannelEvents();
-
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-
-        pc.onicecandidate = (event) => {
-          if (!event.candidate) {
-            hostStatusMsg.textContent = "Copie e envie o código abaixo para o Jogador 2:";
-            hostCodeOut.value = btoa(JSON.stringify(pc.localDescription));
-          }
-        };
-
-        setTimeout(() => {
-          if (pc.localDescription && hostCodeOut.value === "") {
-            hostStatusMsg.textContent = "Copie e envie o código abaixo para o Jogador 2:";
-            hostCodeOut.value = btoa(JSON.stringify(pc.localDescription));
-          }
-        }, 800);
-      });
-
-      btnHostConnect.addEventListener('click', async (e) => {
-        e.preventDefault();
-        const val = hostCodeIn.value.trim();
-        if (!val) { alert("Cole o código de resposta do Jogador 2!"); return; }
-        try {
-          const answer = JSON.parse(atob(val));
-          await pc.setRemoteDescription(new RTCSessionDescription(answer));
-        } catch (err) { alert("Código de resposta inválido."); }
-      });
-
-      btnJoinMode.addEventListener('click', (e) => {
-        e.preventDefault();
-        myPlayerNumber = 2;
-        initialActions.classList.add('hidden');
-        clientSetup.classList.remove('hidden');
-      });
-
-      btnCancel.addEventListener('click', (e) => {
-        e.preventDefault();
-        clientSetup.classList.add('hidden');
-        initialActions.classList.remove('hidden');
-      });
-
-      btnClientGenerate.addEventListener('click', async (e) => {
-        e.preventDefault();
-        const val = clientCodeIn.value.trim();
-        if (!val) { alert("Cole o código enviado pelo Jogador 1!"); return; }
-
-        try {
-          pc.ondatachannel = (event) => {
-            dataChannel = event.channel;
-            bindChannelEvents();
-          };
-
-          const offer = JSON.parse(atob(val));
-          await pc.setRemoteDescription(new RTCSessionDescription(offer));
-          
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-
-          pc.onicecandidate = (event) => {
-            if (!event.candidate) {
-              clientResponseBox.classList.remove('hidden');
-              clientCodeOut.value = btoa(JSON.stringify(pc.localDescription));
-            }
-          };
-
-          setTimeout(() => {
-            if (pc.localDescription && clientCodeOut.value === "") {
-              clientResponseBox.classList.remove('hidden');
-              clientCodeOut.value = btoa(JSON.stringify(pc.localDescription));
-            }
-          }, 800);
-        } catch (err) { alert("Código do Jogador 1 inválido."); }
-      });
-
-      function bindChannelEvents() {
-        dataChannel.onopen = () => {
-          setupScreen.classList.add('hidden');
-          gameScreen.classList.remove('hidden');
-          document.getElementById('max-rounds').textContent = totalRounds;
-          if (myPlayerNumber === 1) sendPayload('INIT', { totalRounds });
-          startRound();
-        };
-
-        dataChannel.onmessage = (e) => handleNetworkMessage(JSON.parse(e.data));
-        dataChannel.onclose = () => { alert("Conexão encerrada."); location.reload(); };
-      }
-
-      function sendPayload(type, data = {}) {
-        if (dataChannel && dataChannel.readyState === 'open') {
-          dataChannel.send(JSON.stringify({ type, ...data }));
-        }
-      }
-
-      // CLIQUE NO TECLADO VIRTUAL
-      document.querySelectorAll('.key-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          const letter = btn.getAttribute('data-key');
-          if (letter && !guessedLetters.includes(letter)) {
-            sendPayload('GUESS', { letter });
-          }
-        });
-      });
-
       function startRound() {
-        secretWord = ""; guessedLetters = []; errorCount = 0;
-        secretWordInput.value = ""; usedLettersList.textContent = "-";
+        secretWord = "";
+        guessedLetters = [];
+        errorCount = 0;
+        secretWordInput.value = "";
+        usedLettersList.textContent = "-";
         errorsLeftSpan.textContent = MAX_ERRORS;
-        document.querySelectorAll('.key-btn').forEach(b => b.disabled = false);
+
+        document.querySelectorAll('.key-btn').forEach(btn => btn.disabled = false);
 
         document.getElementById('current-round').textContent = currentRound;
         document.getElementById('score-j1').textContent = scoreJ1;
         document.getElementById('score-j2').textContent = scoreJ2;
 
         const guesser = currentMaker === 1 ? 2 : 1;
-        roleTurnInfo.textContent = `Jogador ${currentMaker} escolhe a palavra | Jogador ${guesser} adivinha`;
+        roleTurnInfo.textContent = `Vez de Jogador ${currentMaker} escrever a palavra`;
 
-        if (myPlayerNumber === currentMaker) {
-          makerSection.classList.remove('hidden');
-          guesserSection.classList.add('hidden');
-        } else {
-          makerSection.classList.add('hidden');
-          guesserSection.classList.remove('hidden');
-          wordDisplay.innerHTML = "Aguardando a palavra...";
-        }
+        makerSection.classList.remove('hidden');
+        guesserSection.classList.add('hidden');
       }
 
-      // JOGADOR DEFINE A PALAVRA
-      btnSetWord.addEventListener('click', (e) => {
-        e.preventDefault();
+      btnSetWord.addEventListener('click', () => {
         const val = secretWordInput.value.trim().toUpperCase();
         if (!val || !/^[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+$/i.test(val)) {
-          alert("Digite uma palavra válida.");
+          alert("Por favor, digite apenas letras.");
           return;
         }
+
         secretWord = val;
+        const guesser = currentMaker === 1 ? 2 : 1;
+        
         makerSection.classList.add('hidden');
-        sendPayload('WORD', { word: secretWord });
+        guesserSection.classList.remove('hidden');
+        roleTurnInfo.textContent = `Vez de Jogador ${guesser} adivinhar!`;
+
+        renderWordDisplay();
       });
 
-      // TRATAMENTO DE MENSAGENS P2P DA REDE
-      function handleNetworkMessage(data) {
-        if (data.type === 'INIT') {
-          totalRounds = data.totalRounds;
-          document.getElementById('max-rounds').textContent = totalRounds;
-        }
+      document.querySelectorAll('.key-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const letter = btn.getAttribute('data-key');
+          if (!letter || guessedLetters.includes(letter)) return;
 
-        if (data.type === 'WORD') {
-          secretWord = data.word;
-          renderWordDisplay();
-        }
-
-        if (data.type === 'GUESS') {
-          const letter = data.letter;
           guessedLetters.push(letter);
+          btn.disabled = true;
           usedLettersList.textContent = guessedLetters.join(", ");
 
-          // Desabilita a tecla no teclado virtual (impossibilita clicar novamente)
-          const btn = document.querySelector(`.key-btn[data-key="${letter}"]`);
-          if (btn) btn.disabled = true;
-
-          // Verifica se a letra pertence à palavra
           if (secretWord.includes(letter)) {
             renderWordDisplay();
           } else {
-            // EXIBE O X VERMELHO E APAGA APÓS 1 SEGUNDO
             showRedX();
+            if (navigator.vibrate) navigator.vibrate(200);
 
             errorCount++;
             errorsLeftSpan.textContent = MAX_ERRORS - errorCount;
 
             if (errorCount >= MAX_ERRORS) {
-              setTimeout(() => endRound(false), 800);
+              setTimeout(() => endRound(false), 500);
             }
           }
-        }
-      }
+        });
+      });
 
-      // FUNÇÃO PARA EXIBIR O X VERMELHO TEMPORÁRIO
-      function showRedX() {
-        const xDiv = document.createElement('div');
-        xDiv.className = 'error-popup';
-        xDiv.textContent = '✖';
-        errorPopupContainer.appendChild(xDiv);
-
-        setTimeout(() => {
-          if (xDiv.parentNode) {
-            xDiv.parentNode.removeChild(xDiv);
-          }
-        }, 1000);
-      }
-
-      // RENDERIZA OS ESPAÇOS E PREENCHE TODAS AS POSIÇÕES DA LETRA ACERTADA
       function renderWordDisplay() {
         wordDisplay.innerHTML = "";
         let hasWon = true;
@@ -435,7 +215,7 @@
         for (let char of secretWord) {
           const box = document.createElement('div');
           box.className = 'letter-box';
-          
+
           if (guessedLetters.includes(char)) {
             box.textContent = char;
           } else {
@@ -446,8 +226,19 @@
         }
 
         if (hasWon && secretWord.length > 0) {
-          setTimeout(() => endRound(true), 500);
+          setTimeout(() => endRound(true), 400);
         }
+      }
+
+      function showRedX() {
+        const xDiv = document.createElement('div');
+        xDiv.className = 'error-popup';
+        xDiv.textContent = '✖';
+        errorPopupContainer.appendChild(xDiv);
+
+        setTimeout(() => {
+          if (xDiv.parentNode) xDiv.parentNode.removeChild(xDiv);
+        }, 900);
       }
 
       function endRound(guesserWon) {
@@ -455,25 +246,41 @@
         let msg = "";
 
         if (guesserWon) {
-          msg = `Jogador ${guesser} adivinhou a palavra "${secretWord}" e ganhou a rodada!`;
+          msg = `Parabéns! O Jogador ${guesser} acertou a palavra "${secretWord}" e pontuou!`;
           if (guesser === 1) scoreJ1++; else scoreJ2++;
         } else {
-          msg = `Jogador ${guesser} atingiu o limite de erros. Ponto para o Jogador ${currentMaker}! A palavra era "${secretWord}".`;
+          msg = `Fim das tentativas! O Jogador ${guesser} errou 5 vezes. O Jogador ${currentMaker} pontuou!\nA palavra era: "${secretWord}".`;
           if (currentMaker === 1) scoreJ1++; else scoreJ2++;
         }
 
         alert(msg);
 
-        if (currentRound < totalRounds) {
-          currentRound++;
-          currentMaker = currentMaker === 1 ? 2 : 1;
-          startRound();
-        } else {
-          let winMsg = scoreJ1 > scoreJ2 ? "Jogador 1 venceu!" : (scoreJ2 > scoreJ1 ? "Jogador 2 venceu!" : "Empate!");
-          alert(`Fim de Jogo!\nPlacar Final: J1 (${scoreJ1}) x (${scoreJ2}) J2\n${winMsg}`);
-          location.reload();
-        }
+        // Alterna quem escreve na próxima rodada
+        currentRound++;
+        currentMaker = currentMaker === 1 ? 2 : 1;
+        startRound();
       }
+
+      btnEndGame.addEventListener('click', () => {
+        let winnerMsg = "";
+        if (scoreJ1 > scoreJ2) {
+          winnerMsg = "🏆 JOGADOR 1 É O CAMPEÃO!";
+        } else if (scoreJ2 > scoreJ1) {
+          winnerMsg = "🏆 JOGADOR 2 É O CAMPEÃO!";
+        } else {
+          winnerMsg = "🤝 O JOGO TERMINOU EMPATADO!";
+        }
+
+        alert(`JOGO ENCERRADO!\n\nPlacar Final após ${currentRound - 1} rodada(s):\nJogador 1: ${scoreJ1} ponto(s)\nJogador 2: ${scoreJ2} ponto(s)\n\n${winnerMsg}`);
+        
+        currentRound = 1;
+        scoreJ1 = 0;
+        scoreJ2 = 0;
+        currentMaker = 1;
+        startRound();
+      });
+
+      startRound();
     });
   </script>
 </body>
