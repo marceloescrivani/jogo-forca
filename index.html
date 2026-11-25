@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jogo da Forca PWA P2P</title>
   <meta name="theme-color" content="#2c3e50">
+  <!-- Biblioteca externa para geração do QR Code local -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -33,9 +34,10 @@
 </head>
 <body>
 
+  <!-- TELA DE PAREAMENTO -->
   <div class="card" id="setup-screen">
     <h1>Jogo da Forca PWA</h1>
-    <p>Conexão Direta via QR Code</p>
+    <p>Conexão Direta via QR Code ou Código</p>
     
     <div id="initial-actions">
       <label for="total-rounds">Quantidade de Rodadas:</label>
@@ -45,31 +47,40 @@
       <button id="btn-join-mode" type="button">Entrar em uma Sala (Jogador 2)</button>
     </div>
 
+    <!-- JOGADOR 1: EXIBE O QR CODE E O CÓDIGO -->
     <div id="host-setup" class="hidden">
       <h3>Sua Sala foi Criada!</h3>
-      <p id="host-status-msg">Gerando QR Code de conexão...</p>
+      <p id="host-status-msg">Gerando QR Code e Código de Conexão...</p>
       
+      <!-- QR Code -->
       <div id="qrcode-offer" class="qrcode-box"></div>
+
+      <!-- Código em Texto (Opção alternativa) -->
+      <p style="font-size: 12px; color: #7f8c8d; margin-bottom: 4px;">Ou copie o código em texto:</p>
+      <textarea id="host-code-out" readonly rows="3" onclick="this.select()"></textarea>
       
-      <p style="margin-top: 10px; font-size: 13px;">Cole abaixo o código de resposta escaneado do Jogador 2:</p>
+      <p style="margin-top: 10px; font-size: 13px;">Cole abaixo o código de resposta do Jogador 2:</p>
       <textarea id="host-code-in" rows="3" placeholder="Cole o código do Jogador 2 aqui..."></textarea>
       <button id="btn-host-connect" type="button">Conectar e Jogar</button>
     </div>
 
+    <!-- JOGADOR 2: ENTRADA E GERAÇÃO DA RESPOSTA -->
     <div id="client-setup" class="hidden">
       <h3>Entrar na Sala</h3>
-      <p>1. Cole o código lido do QR Code do Jogador 1:</p>
+      <p>1. Cole o código gerado ou lido pelo Jogador 1:</p>
       <textarea id="client-code-in" rows="3" placeholder="Cole o código do Jogador 1 aqui..."></textarea>
-      <button id="btn-client-generate" type="button">Gerar Meu QR Code de Resposta</button>
+      <button id="btn-client-generate" type="button">Gerar Minha Resposta</button>
 
       <div id="client-response-box" class="hidden" style="margin-top: 15px;">
-        <p>2. Mostre este QR Code para o Jogador 1 escanear:</p>
+        <p>2. Mostre este QR Code ou envie o código para o Jogador 1:</p>
         <div id="qrcode-answer" class="qrcode-box"></div>
+        <textarea id="client-code-out" readonly rows="3" onclick="this.select()"></textarea>
       </div>
       <button id="btn-cancel" type="button" style="background-color: #95a5a6; margin-top: 10px;">Voltar</button>
     </div>
   </div>
 
+  <!-- TELA DO JOGO -->
   <div class="card hidden" id="game-screen">
     <div class="status-bar">
       <span>Rodada: <span id="current-round">1</span>/<span id="max-rounds">5</span></span>
@@ -149,6 +160,7 @@
 
       const hostStatusMsg = document.getElementById('host-status-msg');
       const qrcodeOfferDiv = document.getElementById('qrcode-offer');
+      const hostCodeOut = document.getElementById('host-code-out');
       const hostCodeIn = document.getElementById('host-code-in');
       const btnHostConnect = document.getElementById('btn-host-connect');
 
@@ -156,6 +168,7 @@
       const btnClientGenerate = document.getElementById('btn-client-generate');
       const clientResponseBox = document.getElementById('client-response-box');
       const qrcodeAnswerDiv = document.getElementById('qrcode-answer');
+      const clientCodeOut = document.getElementById('client-code-out');
 
       const btnSetWord = document.getElementById('btn-set-word');
       const secretWordInput = document.getElementById('secret-word-input');
@@ -196,16 +209,18 @@
 
         pc.onicecandidate = (event) => {
           if (!event.candidate) {
-            hostStatusMsg.textContent = "Peça para o Jogador 2 escanear este QR Code:";
+            hostStatusMsg.textContent = "Escanear QR Code ou copiar código abaixo:";
             const offerStr = btoa(JSON.stringify(pc.localDescription));
+            hostCodeOut.value = offerStr;
             renderQRCode(qrcodeOfferDiv, offerStr);
           }
         };
 
         setTimeout(() => {
-          if (pc.localDescription && qrcodeOfferDiv.innerHTML === "") {
-            hostStatusMsg.textContent = "Peça para o Jogador 2 escanear este QR Code:";
+          if (pc.localDescription && hostCodeOut.value === "") {
+            hostStatusMsg.textContent = "Escanear QR Code ou copiar código abaixo:";
             const offerStr = btoa(JSON.stringify(pc.localDescription));
+            hostCodeOut.value = offerStr;
             renderQRCode(qrcodeOfferDiv, offerStr);
           }
         }, 800);
@@ -237,7 +252,7 @@
       btnClientGenerate.addEventListener('click', async (e) => {
         e.preventDefault();
         const val = clientCodeIn.value.trim();
-        if (!val) { alert("Cole o código escaneado do Jogador 1!"); return; }
+        if (!val) { alert("Cole o código do Jogador 1!"); return; }
 
         try {
           pc.ondatachannel = (event) => {
@@ -255,14 +270,16 @@
             if (!event.candidate) {
               clientResponseBox.classList.remove('hidden');
               const answerStr = btoa(JSON.stringify(pc.localDescription));
+              clientCodeOut.value = answerStr;
               renderQRCode(qrcodeAnswerDiv, answerStr);
             }
           };
 
           setTimeout(() => {
-            if (pc.localDescription && qrcodeAnswerDiv.innerHTML === "") {
+            if (pc.localDescription && clientCodeOut.value === "") {
               clientResponseBox.classList.remove('hidden');
               const answerStr = btoa(JSON.stringify(pc.localDescription));
+              clientCodeOut.value = answerStr;
               renderQRCode(qrcodeAnswerDiv, answerStr);
             }
           }, 800);
