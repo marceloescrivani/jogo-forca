@@ -7,7 +7,7 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2c3e50">
   <!-- Biblioteca externa para geração de QR Code local -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js"></script>
   <style>
     * { 
       box-sizing: border-box; 
@@ -98,4 +98,389 @@
 
     /* ESTILOS DO TECLADO VIRTUAL MOBILE */
     .keyboard {
-      display: flex
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 15px;
+      width: 100%;
+    }
+    .keyboard-row {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+    }
+    .key-btn {
+      background-color: #2c3e50;
+      color: white;
+      border: none;
+      padding: 10px 0;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      flex: 1;
+      max-width: 38px;
+      margin-bottom: 0;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .key-btn:active {
+      transform: scale(0.95);
+    }
+    .key-btn:disabled {
+      background-color: #bdc3c7 !important;
+      color: #7f8c8d;
+      cursor: not-allowed;
+      transform: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TELA 1: CONFIGURAÇÃO DE SALA E PAREAMENTO -->
+  <div class="card" id="setup-screen">
+    <h1>Jogo da Forca PWA</h1>
+    <p>Conexão P2P (Wi-Fi Local)</p>
+    
+    <label for="total-rounds">Quantidade de Rodadas:</label>
+    <input type="number" id="total-rounds" value="5" min="1" max="20">
+
+    <button id="btn-create" class="secondary">Criar Sala (Jogador 1)</button>
+    <button id="btn-join">Entrar na Sala (Jogador 2)</button>
+
+    <div id="p2p-setup" class="hidden" style="margin-top: 15px;">
+      <h3 id="p2p-title">Sinalização P2P</h3>
+      <div id="qrcode"></div>
+      <p id="p2p-instruction" style="font-size: 13px; color: #555;"></p>
+      <textarea id="sdp-input" placeholder="Cole aqui o código do outro aparelho..." style="height: 70px; font-size: 12px; text-transform: none;"></textarea>
+      <button id="btn-connect">Confirmar Conexão</button>
+    </div>
+  </div>
+
+  <!-- TELA 2: PRINCIPAL DO JOGO -->
+  <div class="card hidden" id="game-screen">
+    <div class="status-bar">
+      <span>Rodada: <span id="current-round">1</span>/<span id="max-rounds">5</span></span>
+      <span>Placar: J1 (<span id="score-j1">0</span>) x (<span id="score-j2">0</span>) J2</span>
+    </div>
+
+    <div id="role-turn-info" style="font-weight: 600; color: #2980b9; margin-bottom: 10px;"></div>
+
+    <!-- PAINEL DE QUEM DEFINE A PALAVRA -->
+    <div id="maker-section">
+      <h3>Digite a palavra secreta:</h3>
+      <input type="text" id="secret-word-input" placeholder="Digite aqui..." autocomplete="off">
+      <button id="btn-set-word">Enviar Palavra</button>
+    </div>
+
+    <!-- PAINEL DE QUEM ADIVINHA (COM TECLADO VIRTUAL) -->
+    <div id="guesser-section" class="hidden">
+      <div class="chances">Erros restantes: <span id="errors-left">5</span>/5</div>
+      
+      <div class="word-display" id="word-display"></div>
+
+      <!-- TECLADO VIRTUAL QWERTY -->
+      <div class="keyboard" id="keyboard">
+        <div class="keyboard-row">
+          <button class="key-btn" data-key="Q">Q</button>
+          <button class="key-btn" data-key="W">W</button>
+          <button class="key-btn" data-key="E">E</button>
+          <button class="key-btn" data-key="R">R</button>
+          <button class="key-btn" data-key="T">T</button>
+          <button class="key-btn" data-key="Y">Y</button>
+          <button class="key-btn" data-key="U">U</button>
+          <button class="key-btn" data-key="I">I</button>
+          <button class="key-btn" data-key="O">O</button>
+          <button class="key-btn" data-key="P">P</button>
+        </div>
+        <div class="keyboard-row">
+          <button class="key-btn" data-key="A">A</button>
+          <button class="key-btn" data-key="S">S</button>
+          <button class="key-btn" data-key="D">D</button>
+          <button class="key-btn" data-key="F">F</button>
+          <button class="key-btn" data-key="G">G</button>
+          <button class="key-btn" data-key="H">H</button>
+          <button class="key-btn" data-key="J">J</button>
+          <button class="key-btn" data-key="K">K</button>
+          <button class="key-btn" data-key="L">L</button>
+          <button class="key-btn" data-key="Ç">Ç</button>
+        </div>
+        <div class="keyboard-row">
+          <button class="key-btn" data-key="Z">Z</button>
+          <button class="key-btn" data-key="X">X</button>
+          <button class="key-btn" data-key="C">C</button>
+          <button class="key-btn" data-key="V">V</button>
+          <button class="key-btn" data-key="B">B</button>
+          <button class="key-btn" data-key="N">N</button>
+          <button class="key-btn" data-key="M">M</button>
+        </div>
+      </div>
+
+      <div class="used-letters">Letras tentadas: <span id="used-letters-list">-</span></div>
+    </div>
+  </div>
+
+  <script>
+    // ESTADO GLOBAL DO JOGO
+    let totalRounds = 5;
+    let currentRound = 1;
+    let scoreJ1 = 0;
+    let scoreJ2 = 0;
+    let currentMaker = 1; // 1: J1 escolhe, 2: J2 escolhe
+    let myPlayerNumber = 1;
+    let secretWord = "";
+    let guessedLetters = [];
+    let errorCount = 0;
+    const MAX_ERRORS = 5;
+
+    // CONEXÃO WEBRTC P2P
+    const config = { iceServers: [] };
+    let peerConnection = new RTCPeerConnection(config);
+    let dataChannel = null;
+
+    // ELEMENTOS DOM
+    const setupScreen = document.getElementById('setup-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const btnCreate = document.getElementById('btn-create');
+    const btnJoin = document.getElementById('btn-join');
+    const p2pSetup = document.getElementById('p2p-setup');
+    const qrcodeDiv = document.getElementById('qrcode');
+    const p2pInstruction = document.getElementById('p2p-instruction');
+    const sdpInput = document.getElementById('sdp-input');
+    const btnConnect = document.getElementById('btn-connect');
+    const btnSetWord = document.getElementById('btn-set-word');
+    const secretWordInput = document.getElementById('secret-word-input');
+    const makerSection = document.getElementById('maker-section');
+    const guesserSection = document.getElementById('guesser-section');
+    const wordDisplay = document.getElementById('word-display');
+    const roleTurnInfo = document.getElementById('role-turn-info');
+    const errorsLeftSpan = document.getElementById('errors-left');
+    const usedLettersList = document.getElementById('used-letters-list');
+
+    // --- CONEXÃO P2P WEBRTC ---
+    btnCreate.addEventListener('click', async () => {
+      myPlayerNumber = 1;
+      totalRounds = parseInt(document.getElementById('total-rounds').value) || 5;
+      dataChannel = peerConnection.createDataChannel("gameChannel");
+      setupDataChannelEvents();
+
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+
+      peerConnection.onicecandidate = (e) => {
+        if (!e.candidate) {
+          const offerStr = JSON.stringify(peerConnection.localDescription);
+          p2pSetup.classList.remove('hidden');
+          qrcodeDiv.innerHTML = "";
+          if (window.QRCode) {
+            new QRCode(qrcodeDiv, { text: offerStr, width: 160, height: 160 });
+          }
+          p2pInstruction.textContent = "Mostre este QR Code para o Jogador 2 ou copie o código gerado. Depois, cole abaixo a resposta dele.";
+        }
+      };
+    });
+
+    btnJoin.addEventListener('click', () => {
+      myPlayerNumber = 2;
+      p2pSetup.classList.remove('hidden');
+      qrcodeDiv.innerHTML = "";
+      p2pInstruction.textContent = "Cole abaixo o código de Oferta do Jogador 1 e clique em Confirmar Conexão.";
+    });
+
+    btnConnect.addEventListener('click', async () => {
+      const inputVal = sdpInput.value.trim();
+      if (!inputVal) return;
+
+      try {
+        const sdpData = JSON.parse(inputVal);
+
+        if (myPlayerNumber === 2 && sdpData.type === 'offer') {
+          peerConnection.ondatachannel = (e) => {
+            dataChannel = e.channel;
+            setupDataChannelEvents();
+          };
+
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(sdpData));
+          const answer = await peerConnection.createAnswer();
+          await peerConnection.setLocalDescription(answer);
+
+          peerConnection.onicecandidate = (e) => {
+            if (!e.candidate) {
+              const answerStr = JSON.stringify(peerConnection.localDescription);
+              qrcodeDiv.innerHTML = "";
+              if (window.QRCode) {
+                new QRCode(qrcodeDiv, { text: answerStr, width: 160, height: 160 });
+              }
+              p2pInstruction.textContent = "Envie/mostre este código de Resposta para o Jogador 1.";
+            }
+          };
+        } else if (myPlayerNumber === 1 && sdpData.type === 'answer') {
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(sdpData));
+        }
+      } catch (err) {
+        alert("Código inválido. Verifique o texto colado.");
+      }
+    });
+
+    function setupDataChannelEvents() {
+      dataChannel.onopen = () => {
+        setupScreen.classList.add('hidden');
+        gameScreen.classList.remove('hidden');
+        document.getElementById('max-rounds').textContent = totalRounds;
+        startRound();
+      };
+
+      dataChannel.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        handleNetworkMessage(data);
+      };
+
+      dataChannel.onclose = () => {
+        alert("A conexão com o outro jogador foi perdida.");
+        location.reload();
+      };
+    }
+
+    function sendPayload(type, data = {}) {
+      if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send(JSON.stringify({ type, ...data }));
+      }
+    }
+
+    // --- EVENTOS DO TECLADO VIRTUAL ---
+    document.querySelectorAll('.key-btn').forEach(button => {
+      button.addEventListener('click', (e) => {
+        const letter = e.target.getAttribute('data-key');
+        if (letter && !guessedLetters.includes(letter)) {
+          sendPayload('GUESS_LETTER', { letter });
+        }
+      });
+    });
+
+    // --- LÓGICA DO JOGO DA FORCA ---
+    function startRound() {
+      secretWord = "";
+      guessedLetters = [];
+      errorCount = 0;
+      secretWordInput.value = "";
+      usedLettersList.textContent = "-";
+      errorsLeftSpan.textContent = MAX_ERRORS;
+
+      // Reativa todas as teclas do teclado virtual
+      document.querySelectorAll('.key-btn').forEach(btn => {
+        btn.disabled = false;
+      });
+
+      document.getElementById('current-round').textContent = currentRound;
+      document.getElementById('score-j1').textContent = scoreJ1;
+      document.getElementById('score-j2').textContent = scoreJ2;
+
+      const guesser = currentMaker === 1 ? 2 : 1;
+      roleTurnInfo.textContent = `Jogador ${currentMaker} escolhe a palavra | Jogador ${guesser} adivinha`;
+
+      if (myPlayerNumber === currentMaker) {
+        makerSection.classList.remove('hidden');
+        guesserSection.classList.add('hidden');
+      } else {
+        makerSection.classList.add('hidden');
+        guesserSection.classList.remove('hidden');
+        wordDisplay.innerHTML = "Aguardando o outro jogador digitar a palavra...";
+      }
+    }
+
+    btnSetWord.addEventListener('click', () => {
+      const val = secretWordInput.value.trim().toUpperCase();
+      if (!val || !/^[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+$/i.test(val)) {
+        alert("Digite uma palavra válida (somente letras).");
+        return;
+      }
+      secretWord = val;
+      makerSection.classList.add('hidden');
+      sendPayload('SET_WORD', { wordLength: secretWord.length, word: secretWord });
+    });
+
+    function handleNetworkMessage(data) {
+      if (data.type === 'SET_WORD') {
+        secretWord = data.word;
+        renderWordDisplay();
+      }
+
+      if (data.type === 'GUESS_LETTER') {
+        const letter = data.letter;
+        guessedLetters.push(letter);
+        usedLettersList.textContent = guessedLetters.join(", ");
+
+        // Desabilita o botão da letra tentada no teclado virtual
+        const pressedKeyBtn = document.querySelector(`.key-btn[data-key="${letter}"]`);
+        if (pressedKeyBtn) {
+          pressedKeyBtn.disabled = true;
+        }
+
+        if (secretWord.includes(letter)) {
+          renderWordDisplay();
+        } else {
+          errorCount++;
+          errorsLeftSpan.textContent = MAX_ERRORS - errorCount;
+          if (errorCount >= MAX_ERRORS) {
+            endRound(false);
+          }
+        }
+      }
+    }
+
+    function renderWordDisplay() {
+      wordDisplay.innerHTML = "";
+      let hasWon = true;
+
+      for (let char of secretWord) {
+        const box = document.createElement('div');
+        box.className = 'letter-box';
+        if (guessedLetters.includes(char)) {
+          box.textContent = char;
+        } else {
+          box.textContent = "";
+          hasWon = false;
+        }
+        wordDisplay.appendChild(box);
+      }
+
+      if (hasWon && secretWord.length > 0) {
+        endRound(true);
+      }
+    }
+
+    function endRound(guesserWon) {
+      const guesser = currentMaker === 1 ? 2 : 1;
+      let winnerText = "";
+
+      if (guesserWon) {
+        winnerText = `O Jogador ${guesser} adivinhou a palavra "${secretWord}" e ganhou a rodada!`;
+        if (guesser === 1) scoreJ1++; else scoreJ2++;
+      } else {
+        winnerText = `O Jogador ${guesser} cometeu 5 erros. O Jogador ${currentMaker} ganhou o ponto! A palavra era: "${secretWord}".`;
+        if (currentMaker === 1) scoreJ1++; else scoreJ2++;
+      }
+
+      alert(winnerText);
+
+      if (currentRound < totalRounds) {
+        currentRound++;
+        currentMaker = currentMaker === 1 ? 2 : 1;
+        startRound();
+      } else {
+        let finalWinner = "";
+        if (scoreJ1 > scoreJ2) finalWinner = "Jogador 1 venceu o jogo!";
+        else if (scoreJ2 > scoreJ1) finalWinner = "Jogador 2 venceu o jogo!";
+        else finalWinner = "O jogo terminou empatado!";
+
+        alert(`Fim de jogo!\nPlacar Final: Jogador 1 (${scoreJ1}) x (${scoreJ2}) Jogador 2\n${finalWinner}`);
+        location.reload();
+      }
+    }
+
+    // REGISTRO DO SERVICE WORKER PARA SUPORTE A PWA
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(err => console.log('SW erro:', err));
+    }
+  </script>
+</body>
+</html>
