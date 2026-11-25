@@ -11,12 +11,15 @@
     .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 480px; text-align: center; position: relative; }
     h1 { color: #2c3e50; margin-top: 0; font-size: 24px; }
     p { margin-bottom: 15px; color: #666; font-size: 14px; }
+    label { display: block; margin-bottom: 5px; font-weight: 600; text-align: left; }
     .status-bar { display: flex; justify-content: space-between; background: #ecf0f1; padding: 10px 15px; border-radius: 8px; font-weight: bold; margin-bottom: 15px; }
     .word-display { display: flex; justify-content: center; gap: 8px; margin: 20px 0; flex-wrap: wrap; }
     .letter-box { width: 36px; height: 42px; border-bottom: 3px solid #2c3e50; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; text-transform: uppercase; background: #eef2f5; border-radius: 4px 4px 0 0; }
-    input[type="password"] { width: 100%; padding: 12px; font-size: 18px; border: 2px solid #bdc3c7; border-radius: 6px; text-align: center; margin-bottom: 12px; text-transform: uppercase; }
+    input[type="text"], input[type="number"] { width: 100%; padding: 12px; font-size: 18px; border: 2px solid #bdc3c7; border-radius: 6px; text-align: center; margin-bottom: 12px; text-transform: uppercase; }
     button { background-color: #27ae60; color: white; border: none; padding: 12px; font-size: 16px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; transition: background 0.2s; margin-bottom: 10px; }
     button:hover { background-color: #219150; }
+    button.secondary { background-color: #2980b9; }
+    button.secondary:hover { background-color: #1f6391; }
     button.danger { background-color: #c0392b; }
     button.danger:hover { background-color: #a93226; }
     .chances { color: #c0392b; font-weight: bold; font-size: 18px; margin-bottom: 15px; }
@@ -58,72 +61,84 @@
 
     <h1>Jogo da Forca (Passa & Joga)</h1>
 
-    <!-- PLACAR E RODADA -->
-    <div class="status-bar">
-      <span>Rodada <span id="current-round">1</span></span>
-      <span>Placar: J1 (<span id="score-j1">0</span>) x (<span id="score-j2">0</span>) J2</span>
+    <!-- CONFIGURAÇÃO INICIAL DA PARTIDA -->
+    <div id="setup-section">
+      <p>Configure a partida antes de começar:</p>
+      <label for="total-rounds-input">Quantidade de Rodadas:</label>
+      <input type="number" id="total-rounds-input" value="5" min="1" max="20" style="text-transform: none;">
+      <button id="btn-start-game" type="button" class="secondary">Iniciar Partida</button>
     </div>
 
-    <div id="role-turn-info" style="font-weight: 600; color: #2980b9; margin-bottom: 12px; font-size: 15px;"></div>
-
-    <!-- ETAPA 1: DIGITAR PALAVRA -->
-    <div id="maker-section">
-      <p style="font-size: 13px; color: #555;">Digite a palavra secreta abaixo e passe o smartphone:</p>
-      <input type="password" id="secret-word-input" placeholder="PALAVRA SECRETA" autocomplete="off">
-      <button id="btn-set-word" type="button">Ocultar e Passar Aparelho</button>
-    </div>
-
-    <!-- ETAPA 2: ADIVINHAR PALAVRA -->
-    <div id="guesser-section" class="hidden">
-      <div class="chances">Erros restantes: <span id="errors-left">5</span>/5</div>
-      <div class="word-display" id="word-display"></div>
-
-      <!-- TECLADO VIRTUAL QWERTY -->
-      <div class="keyboard" id="keyboard">
-        <div class="keyboard-row">
-          <button class="key-btn" type="button" data-key="Q">Q</button>
-          <button class="key-btn" type="button" data-key="W">W</button>
-          <button class="key-btn" type="button" data-key="E">E</button>
-          <button class="key-btn" type="button" data-key="R">R</button>
-          <button class="key-btn" type="button" data-key="T">T</button>
-          <button class="key-btn" type="button" data-key="Y">Y</button>
-          <button class="key-btn" type="button" data-key="U">U</button>
-          <button class="key-btn" type="button" data-key="I">I</button>
-          <button class="key-btn" type="button" data-key="O">O</button>
-          <button class="key-btn" type="button" data-key="P">P</button>
-        </div>
-        <div class="keyboard-row">
-          <button class="key-btn" type="button" data-key="A">A</button>
-          <button class="key-btn" type="button" data-key="S">S</button>
-          <button class="key-btn" type="button" data-key="D">D</button>
-          <button class="key-btn" type="button" data-key="F">F</button>
-          <button class="key-btn" type="button" data-key="G">G</button>
-          <button class="key-btn" type="button" data-key="H">H</button>
-          <button class="key-btn" type="button" data-key="J">J</button>
-          <button class="key-btn" type="button" data-key="K">K</button>
-          <button class="key-btn" type="button" data-key="L">L</button>
-          <button class="key-btn" type="button" data-key="Ç">Ç</button>
-        </div>
-        <div class="keyboard-row">
-          <button class="key-btn" type="button" data-key="Z">Z</button>
-          <button class="key-btn" type="button" data-key="X">X</button>
-          <button class="key-btn" type="button" data-key="C">C</button>
-          <button class="key-btn" type="button" data-key="V">V</button>
-          <button class="key-btn" type="button" data-key="B">B</button>
-          <button class="key-btn" type="button" data-key="N">N</button>
-          <button class="key-btn" type="button" data-key="M">M</button>
-        </div>
+    <!-- AREA DO JOGO -->
+    <div id="game-container" class="hidden">
+      <!-- PLACAR E RODADA -->
+      <div class="status-bar">
+        <span>Rodada <span id="current-round">1</span>/<span id="max-rounds">5</span></span>
+        <span>Placar: J1 (<span id="score-j1">0</span>) x (<span id="score-j2">0</span>) J2</span>
       </div>
 
-      <div class="used-letters">Letras tentadas: <span id="used-letters-list">-</span></div>
-    </div>
+      <div id="role-turn-info" style="font-weight: 600; color: #2980b9; margin-bottom: 12px; font-size: 15px;"></div>
 
-    <!-- BOTÃO DE ENCERRAMENTO -->
-    <button id="btn-end-game" type="button" class="danger" style="margin-top: 20px;">Encerrar Jogo e Ver Vencedor</button>
+      <!-- ETAPA 1: DIGITAR PALAVRA (VISÍVEL ENQUANTO DIGITA) -->
+      <div id="maker-section">
+        <p style="font-size: 13px; color: #555;">Digite a palavra secreta e clique no botão para ocultar e passar o aparelho:</p>
+        <input type="text" id="secret-word-input" placeholder="DIGITE A PALAVRA" autocomplete="off">
+        <button id="btn-set-word" type="button">Ocultar e Passar Aparelho</button>
+      </div>
+
+      <!-- ETAPA 2: ADIVINHAR PALAVRA -->
+      <div id="guesser-section" class="hidden">
+        <div class="chances">Erros restantes: <span id="errors-left">5</span>/5</div>
+        <div class="word-display" id="word-display"></div>
+
+        <!-- TECLADO VIRTUAL QWERTY -->
+        <div class="keyboard" id="keyboard">
+          <div class="keyboard-row">
+            <button class="key-btn" type="button" data-key="Q">Q</button>
+            <button class="key-btn" type="button" data-key="W">W</button>
+            <button class="key-btn" type="button" data-key="E">E</button>
+            <button class="key-btn" type="button" data-key="R">R</button>
+            <button class="key-btn" type="button" data-key="T">T</button>
+            <button class="key-btn" type="button" data-key="Y">Y</button>
+            <button class="key-btn" type="button" data-key="U">U</button>
+            <button class="key-btn" type="button" data-key="I">I</button>
+            <button class="key-btn" type="button" data-key="O">O</button>
+            <button class="key-btn" type="button" data-key="P">P</button>
+          </div>
+          <div class="keyboard-row">
+            <button class="key-btn" type="button" data-key="A">A</button>
+            <button class="key-btn" type="button" data-key="S">S</button>
+            <button class="key-btn" type="button" data-key="D">D</button>
+            <button class="key-btn" type="button" data-key="F">F</button>
+            <button class="key-btn" type="button" data-key="G">G</button>
+            <button class="key-btn" type="button" data-key="H">H</button>
+            <button class="key-btn" type="button" data-key="J">J</button>
+            <button class="key-btn" type="button" data-key="K">K</button>
+            <button class="key-btn" type="button" data-key="L">L</button>
+            <button class="key-btn" type="button" data-key="Ç">Ç</button>
+          </div>
+          <div class="keyboard-row">
+            <button class="key-btn" type="button" data-key="Z">Z</button>
+            <button class="key-btn" type="button" data-key="X">X</button>
+            <button class="key-btn" type="button" data-key="C">C</button>
+            <button class="key-btn" type="button" data-key="V">V</button>
+            <button class="key-btn" type="button" data-key="B">B</button>
+            <button class="key-btn" type="button" data-key="N">N</button>
+            <button class="key-btn" type="button" data-key="M">M</button>
+          </div>
+        </div>
+
+        <div class="used-letters">Letras tentadas: <span id="used-letters-list">-</span></div>
+      </div>
+
+      <!-- BOTÃO DE ENCERRAMENTO ANTECIPADO -->
+      <button id="btn-end-game" type="button" class="danger" style="margin-top: 20px;">Encerrar Jogo e Ver Vencedor</button>
+    </div>
   </div>
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+      let totalRounds = 5;
       let currentRound = 1;
       let scoreJ1 = 0;
       let scoreJ2 = 0;
@@ -132,6 +147,11 @@
       let guessedLetters = [];
       let errorCount = 0;
       const MAX_ERRORS = 5;
+
+      const setupSection = document.getElementById('setup-section');
+      const gameContainer = document.getElementById('game-container');
+      const totalRoundsInput = document.getElementById('total-rounds-input');
+      const btnStartGame = document.getElementById('btn-start-game');
 
       const roleTurnInfo = document.getElementById('role-turn-info');
       const makerSection = document.getElementById('maker-section');
@@ -143,6 +163,27 @@
       const errorsLeftSpan = document.getElementById('errors-left');
       const usedLettersList = document.getElementById('used-letters-list');
       const errorPopupContainer = document.getElementById('error-popup-container');
+
+      // INICIAR A PARTIDA COM A QUANTIDADE DE RODADAS DEFINIDA
+      btnStartGame.addEventListener('click', () => {
+        const roundsVal = parseInt(totalRoundsInput.value);
+        if (!roundsVal || roundsVal < 1) {
+          alert("Digite uma quantidade válida de rodadas (no mínimo 1).");
+          return;
+        }
+
+        totalRounds = roundsVal;
+        currentRound = 1;
+        scoreJ1 = 0;
+        scoreJ2 = 0;
+        currentMaker = 1;
+
+        document.getElementById('max-rounds').textContent = totalRounds;
+        setupSection.classList.add('hidden');
+        gameContainer.classList.remove('hidden');
+
+        startRound();
+      });
 
       function startRound() {
         secretWord = "";
@@ -164,6 +205,7 @@
         guesserSection.classList.add('hidden');
       }
 
+      // CLIQUE EM "OCULTAR E PASSAR APARELHO"
       btnSetWord.addEventListener('click', () => {
         const val = secretWordInput.value.trim().toUpperCase();
         if (!val || !/^[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+$/i.test(val)) {
@@ -174,6 +216,7 @@
         secretWord = val;
         const guesser = currentMaker === 1 ? 2 : 1;
         
+        // Oculta a área de digitação e exibe a tela de adivinhação com traços
         makerSection.classList.add('hidden');
         guesserSection.classList.remove('hidden');
         roleTurnInfo.textContent = `Vez de Jogador ${guesser} adivinhar!`;
@@ -181,6 +224,7 @@
         renderWordDisplay();
       });
 
+      // CLIQUE NO TECLADO VIRTUAL
       document.querySelectorAll('.key-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.preventDefault();
@@ -249,18 +293,21 @@
           if (guesser === 1) scoreJ1++; else scoreJ2++;
         } else {
           msg = `Fim das tentativas! O Jogador ${guesser} errou 5 vezes e não pontuou.\nA palavra era: "${secretWord}".`;
-          // Ninguém pontua se o adivinhador errar 5 vezes
         }
 
         alert(msg);
 
-        // Alterna quem escolhe e quem adivinha na próxima rodada
-        currentRound++;
-        currentMaker = currentMaker === 1 ? 2 : 1;
-        startRound();
+        // Se ainda houver rodadas restantes, avança
+        if (currentRound < totalRounds) {
+          currentRound++;
+          currentMaker = currentMaker === 1 ? 2 : 1;
+          startRound();
+        } else {
+          finishGame();
+        }
       }
 
-      btnEndGame.addEventListener('click', () => {
+      function finishGame() {
         let winnerMsg = "";
         if (scoreJ1 > scoreJ2) {
           winnerMsg = "🏆 JOGADOR 1 É O CAMPEÃO!";
@@ -270,16 +317,18 @@
           winnerMsg = "🤝 O JOGO TERMINOU EMPATADO!";
         }
 
-        alert(`JOGO ENCERRADO!\n\nPlacar Final após ${currentRound - 1} rodada(s):\nJogador 1: ${scoreJ1} ponto(s)\nJogador 2: ${scoreJ2} ponto(s)\n\n${winnerMsg}`);
+        alert(`PARTIDA FINALIZADA!\n\nPlacar Final após ${totalRounds} rodada(s):\nJogador 1: ${scoreJ1} ponto(s)\nJogador 2: ${scoreJ2} ponto(s)\n\n${winnerMsg}`);
         
-        currentRound = 1;
-        scoreJ1 = 0;
-        scoreJ2 = 0;
-        currentMaker = 1;
-        startRound();
-      });
+        // Retorna à tela inicial de configuração
+        gameContainer.classList.add('hidden');
+        setupSection.classList.remove('hidden');
+      }
 
-      startRound();
+      btnEndGame.addEventListener('click', () => {
+        if (confirm("Deseja realmente encerrar a partida agora e ver o placar final?")) {
+          finishGame();
+        }
+      });
     });
   </script>
 </body>
