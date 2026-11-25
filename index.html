@@ -6,7 +6,7 @@
   <title>Jogo da Forca PWA P2P</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2c3e50">
-  <!-- Biblioteca PeerJS para Sinalização P2P por Código Numérico -->
+  <!-- Biblioteca PeerJS -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     * { 
@@ -76,12 +76,12 @@
       margin-bottom: 12px; 
     }
     .room-code-display {
-      font-size: 32px;
+      font-size: 36px;
       font-weight: bold;
-      letter-spacing: 4px;
+      letter-spacing: 6px;
       color: #27ae60;
       background: #e8f8f5;
-      padding: 10px;
+      padding: 12px;
       border-radius: 8px;
       border: 2px dashed #27ae60;
       margin: 15px 0;
@@ -162,103 +162,4 @@
     <!-- EXIBIÇÃO DO CÓDIGO (JOGADOR 1) -->
     <div id="host-setup" class="hidden">
       <h3>Sua Sala foi criada!</h3>
-      <p>Informe este código para o Jogador 2:</p>
-      <div class="room-code-display" id="room-code-num">------</div>
-      <p style="font-size: 13px; color: #7f8c8d;">Aguardando o outro jogador conectar...</p>
-    </div>
-
-    <!-- ENTRADA DO CÓDIGO (JOGADOR 2) -->
-    <div id="client-setup" class="hidden">
-      <h3>Entrar na Sala</h3>
-      <p>Digite o código de 6 dígitos gerado pelo Jogador 1:</p>
-      <input type="number" id="input-room-code" placeholder="Ex: 123456" maxlength="6">
-      <button id="btn-connect-room">Conectar e Jogar</button>
-      <button id="btn-cancel" style="background-color: #95a5a6;">Voltar</button>
-    </div>
-  </div>
-
-  <!-- TELA 2: PRINCIPAL DO JOGO -->
-  <div class="card hidden" id="game-screen">
-    <div class="status-bar">
-      <span>Rodada: <span id="current-round">1</span>/<span id="max-rounds">5</span></span>
-      <span>Placar: J1 (<span id="score-j1">0</span>) x (<span id="score-j2">0</span>) J2</span>
-    </div>
-
-    <div id="role-turn-info" style="font-weight: 600; color: #2980b9; margin-bottom: 10px;"></div>
-
-    <!-- PAINEL DE QUEM DEFINE A PALAVRA -->
-    <div id="maker-section">
-      <h3>Digite a palavra secreta:</h3>
-      <input type="text" id="secret-word-input" placeholder="Digite aqui..." autocomplete="off">
-      <button id="btn-set-word">Enviar Palavra</button>
-    </div>
-
-    <!-- PAINEL DE QUEM ADIVINHA (COM TECLADO VIRTUAL) -->
-    <div id="guesser-section" class="hidden">
-      <div class="chances">Erros restantes: <span id="errors-left">5</span>/5</div>
-      
-      <div class="word-display" id="word-display"></div>
-
-      <!-- TECLADO VIRTUAL QWERTY -->
-      <div class="keyboard" id="keyboard">
-        <div class="keyboard-row">
-          <button class="key-btn" data-key="Q">Q</button>
-          <button class="key-btn" data-key="W">W</button>
-          <button class="key-btn" data-key="E">E</button>
-          <button class="key-btn" data-key="R">R</button>
-          <button class="key-btn" data-key="T">T</button>
-          <button class="key-btn" data-key="Y">Y</button>
-          <button class="key-btn" data-key="U">U</button>
-          <button class="key-btn" data-key="I">I</button>
-          <button class="key-btn" data-key="O">O</button>
-          <button class="key-btn" data-key="P">P</button>
-        </div>
-        <div class="keyboard-row">
-          <button class="key-btn" data-key="A">A</button>
-          <button class="key-btn" data-key="S">S</button>
-          <button class="key-btn" data-key="D">D</button>
-          <button class="key-btn" data-key="F">F</button>
-          <button class="key-btn" data-key="G">G</button>
-          <button class="key-btn" data-key="H">H</button>
-          <button class="key-btn" data-key="J">J</button>
-          <button class="key-btn" data-key="K">K</button>
-          <button class="key-btn" data-key="L">L</button>
-          <button class="key-btn" data-key="Ç">Ç</button>
-        </div>
-        <div class="keyboard-row">
-          <button class="key-btn" data-key="Z">Z</button>
-          <button class="key-btn" data-key="X">X</button>
-          <button class="key-btn" data-key="C">C</button>
-          <button class="key-btn" data-key="V">V</button>
-          <button class="key-btn" data-key="B">B</button>
-          <button class="key-btn" data-key="N">N</button>
-          <button class="key-btn" data-key="M">M</button>
-        </div>
-      </div>
-
-      <div class="used-letters">Letras tentadas: <span id="used-letters-list">-</span></div>
-    </div>
-  </div>
-
-  <script>
-    // ESTADO GLOBAL DO JOGO
-    let totalRounds = 5;
-    let currentRound = 1;
-    let scoreJ1 = 0;
-    let scoreJ2 = 0;
-    let currentMaker = 1;
-    let myPlayerNumber = 1;
-    let secretWord = "";
-    let guessedLetters = [];
-    let errorCount = 0;
-    const MAX_ERRORS = 5;
-
-    // CONEXÃO PEERJS (WEBRTC NUMÉRICO)
-    let peer = null;
-    let conn = null;
-
-    // DOM ELEMENTS
-    const setupScreen = document.getElementById('setup-screen');
-    const gameScreen = document.getElementById('game-screen');
-    const initialActions = document.getElementById('initial-actions');
-    const hostSetup
+      <p>Informe este código para o Jog
