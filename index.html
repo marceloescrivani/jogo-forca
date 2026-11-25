@@ -6,8 +6,8 @@
   <title>Jogo da Forca PWA P2P</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2c3e50">
-  <!-- Biblioteca externa para geração de QR Code local -->
-  <script src="https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <!-- Biblioteca PeerJS para Sinalização P2P por Código Numérico -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     * { 
       box-sizing: border-box; 
@@ -66,7 +66,7 @@
       background: #eef2f5; 
       border-radius: 4px 4px 0 0; 
     }
-    input[type="text"], input[type="number"], textarea { 
+    input[type="text"], input[type="number"] { 
       width: 100%; 
       padding: 10px; 
       font-size: 16px; 
@@ -74,6 +74,17 @@
       border-radius: 6px; 
       text-align: center; 
       margin-bottom: 12px; 
+    }
+    .room-code-display {
+      font-size: 32px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      color: #27ae60;
+      background: #e8f8f5;
+      padding: 10px;
+      border-radius: 8px;
+      border: 2px dashed #27ae60;
+      margin: 15px 0;
     }
     button { 
       background-color: #27ae60; 
@@ -94,9 +105,8 @@
     .chances { color: #c0392b; font-weight: bold; font-size: 18px; margin-bottom: 15px; }
     .hidden { display: none !important; }
     .used-letters { font-size: 14px; color: #7f8c8d; margin-top: 10px; word-break: break-all; }
-    #qrcode { display: flex; justify-content: center; margin: 15px 0; }
 
-    /* ESTILOS DO TECLADO VIRTUAL MOBILE */
+    /* ESTILOS DO TECLADO VIRTUAL */
     .keyboard {
       display: flex;
       flex-direction: column;
@@ -139,20 +149,31 @@
   <!-- TELA 1: CONFIGURAÇÃO DE SALA E PAREAMENTO -->
   <div class="card" id="setup-screen">
     <h1>Jogo da Forca PWA</h1>
-    <p>Conexão P2P (Wi-Fi Local)</p>
+    <p>Conexão P2P por Código Numérico</p>
     
-    <label for="total-rounds">Quantidade de Rodadas:</label>
-    <input type="number" id="total-rounds" value="5" min="1" max="20">
+    <div id="initial-actions">
+      <label for="total-rounds">Quantidade de Rodadas:</label>
+      <input type="number" id="total-rounds" value="5" min="1" max="20">
 
-    <button id="btn-create" class="secondary">Criar Sala (Jogador 1)</button>
-    <button id="btn-join">Entrar na Sala (Jogador 2)</button>
+      <button id="btn-create" class="secondary">Criar Sala (Jogador 1)</button>
+      <button id="btn-join-mode">Entrar em uma Sala (Jogador 2)</button>
+    </div>
 
-    <div id="p2p-setup" class="hidden" style="margin-top: 15px;">
-      <h3 id="p2p-title">Sinalização P2P</h3>
-      <div id="qrcode"></div>
-      <p id="p2p-instruction" style="font-size: 13px; color: #555;"></p>
-      <textarea id="sdp-input" placeholder="Cole aqui o código do outro aparelho..." style="height: 70px; font-size: 12px; text-transform: none;"></textarea>
-      <button id="btn-connect">Confirmar Conexão</button>
+    <!-- EXIBIÇÃO DO CÓDIGO (JOGADOR 1) -->
+    <div id="host-setup" class="hidden">
+      <h3>Sua Sala foi criada!</h3>
+      <p>Informe este código para o Jogador 2:</p>
+      <div class="room-code-display" id="room-code-num">------</div>
+      <p style="font-size: 13px; color: #7f8c8d;">Aguardando o outro jogador conectar...</p>
+    </div>
+
+    <!-- ENTRADA DO CÓDIGO (JOGADOR 2) -->
+    <div id="client-setup" class="hidden">
+      <h3>Entrar na Sala</h3>
+      <p>Digite o código de 6 dígitos gerado pelo Jogador 1:</p>
+      <input type="number" id="input-room-code" placeholder="Ex: 123456" maxlength="6">
+      <button id="btn-connect-room">Conectar e Jogar</button>
+      <button id="btn-cancel" style="background-color: #95a5a6;">Voltar</button>
     </div>
   </div>
 
@@ -225,262 +246,19 @@
     let currentRound = 1;
     let scoreJ1 = 0;
     let scoreJ2 = 0;
-    let currentMaker = 1; // 1: J1 escolhe, 2: J2 escolhe
+    let currentMaker = 1;
     let myPlayerNumber = 1;
     let secretWord = "";
     let guessedLetters = [];
     let errorCount = 0;
     const MAX_ERRORS = 5;
 
-    // CONEXÃO WEBRTC P2P
-    const config = { iceServers: [] };
-    let peerConnection = new RTCPeerConnection(config);
-    let dataChannel = null;
+    // CONEXÃO PEERJS (WEBRTC NUMÉRICO)
+    let peer = null;
+    let conn = null;
 
-    // ELEMENTOS DOM
+    // DOM ELEMENTS
     const setupScreen = document.getElementById('setup-screen');
     const gameScreen = document.getElementById('game-screen');
-    const btnCreate = document.getElementById('btn-create');
-    const btnJoin = document.getElementById('btn-join');
-    const p2pSetup = document.getElementById('p2p-setup');
-    const qrcodeDiv = document.getElementById('qrcode');
-    const p2pInstruction = document.getElementById('p2p-instruction');
-    const sdpInput = document.getElementById('sdp-input');
-    const btnConnect = document.getElementById('btn-connect');
-    const btnSetWord = document.getElementById('btn-set-word');
-    const secretWordInput = document.getElementById('secret-word-input');
-    const makerSection = document.getElementById('maker-section');
-    const guesserSection = document.getElementById('guesser-section');
-    const wordDisplay = document.getElementById('word-display');
-    const roleTurnInfo = document.getElementById('role-turn-info');
-    const errorsLeftSpan = document.getElementById('errors-left');
-    const usedLettersList = document.getElementById('used-letters-list');
-
-    // --- CONEXÃO P2P WEBRTC ---
-    btnCreate.addEventListener('click', async () => {
-      myPlayerNumber = 1;
-      totalRounds = parseInt(document.getElementById('total-rounds').value) || 5;
-      dataChannel = peerConnection.createDataChannel("gameChannel");
-      setupDataChannelEvents();
-
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-
-      peerConnection.onicecandidate = (e) => {
-        if (!e.candidate) {
-          const offerStr = JSON.stringify(peerConnection.localDescription);
-          p2pSetup.classList.remove('hidden');
-          qrcodeDiv.innerHTML = "";
-          if (window.QRCode) {
-            new QRCode(qrcodeDiv, { text: offerStr, width: 160, height: 160 });
-          }
-          p2pInstruction.textContent = "Mostre este QR Code para o Jogador 2 ou copie o código gerado. Depois, cole abaixo a resposta dele.";
-        }
-      };
-    });
-
-    btnJoin.addEventListener('click', () => {
-      myPlayerNumber = 2;
-      p2pSetup.classList.remove('hidden');
-      qrcodeDiv.innerHTML = "";
-      p2pInstruction.textContent = "Cole abaixo o código de Oferta do Jogador 1 e clique em Confirmar Conexão.";
-    });
-
-    btnConnect.addEventListener('click', async () => {
-      const inputVal = sdpInput.value.trim();
-      if (!inputVal) return;
-
-      try {
-        const sdpData = JSON.parse(inputVal);
-
-        if (myPlayerNumber === 2 && sdpData.type === 'offer') {
-          peerConnection.ondatachannel = (e) => {
-            dataChannel = e.channel;
-            setupDataChannelEvents();
-          };
-
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(sdpData));
-          const answer = await peerConnection.createAnswer();
-          await peerConnection.setLocalDescription(answer);
-
-          peerConnection.onicecandidate = (e) => {
-            if (!e.candidate) {
-              const answerStr = JSON.stringify(peerConnection.localDescription);
-              qrcodeDiv.innerHTML = "";
-              if (window.QRCode) {
-                new QRCode(qrcodeDiv, { text: answerStr, width: 160, height: 160 });
-              }
-              p2pInstruction.textContent = "Envie/mostre este código de Resposta para o Jogador 1.";
-            }
-          };
-        } else if (myPlayerNumber === 1 && sdpData.type === 'answer') {
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(sdpData));
-        }
-      } catch (err) {
-        alert("Código inválido. Verifique o texto colado.");
-      }
-    });
-
-    function setupDataChannelEvents() {
-      dataChannel.onopen = () => {
-        setupScreen.classList.add('hidden');
-        gameScreen.classList.remove('hidden');
-        document.getElementById('max-rounds').textContent = totalRounds;
-        startRound();
-      };
-
-      dataChannel.onmessage = (e) => {
-        const data = JSON.parse(e.data);
-        handleNetworkMessage(data);
-      };
-
-      dataChannel.onclose = () => {
-        alert("A conexão com o outro jogador foi perdida.");
-        location.reload();
-      };
-    }
-
-    function sendPayload(type, data = {}) {
-      if (dataChannel && dataChannel.readyState === 'open') {
-        dataChannel.send(JSON.stringify({ type, ...data }));
-      }
-    }
-
-    // --- EVENTOS DO TECLADO VIRTUAL ---
-    document.querySelectorAll('.key-btn').forEach(button => {
-      button.addEventListener('click', (e) => {
-        const letter = e.target.getAttribute('data-key');
-        if (letter && !guessedLetters.includes(letter)) {
-          sendPayload('GUESS_LETTER', { letter });
-        }
-      });
-    });
-
-    // --- LÓGICA DO JOGO DA FORCA ---
-    function startRound() {
-      secretWord = "";
-      guessedLetters = [];
-      errorCount = 0;
-      secretWordInput.value = "";
-      usedLettersList.textContent = "-";
-      errorsLeftSpan.textContent = MAX_ERRORS;
-
-      // Reativa todas as teclas do teclado virtual
-      document.querySelectorAll('.key-btn').forEach(btn => {
-        btn.disabled = false;
-      });
-
-      document.getElementById('current-round').textContent = currentRound;
-      document.getElementById('score-j1').textContent = scoreJ1;
-      document.getElementById('score-j2').textContent = scoreJ2;
-
-      const guesser = currentMaker === 1 ? 2 : 1;
-      roleTurnInfo.textContent = `Jogador ${currentMaker} escolhe a palavra | Jogador ${guesser} adivinha`;
-
-      if (myPlayerNumber === currentMaker) {
-        makerSection.classList.remove('hidden');
-        guesserSection.classList.add('hidden');
-      } else {
-        makerSection.classList.add('hidden');
-        guesserSection.classList.remove('hidden');
-        wordDisplay.innerHTML = "Aguardando o outro jogador digitar a palavra...";
-      }
-    }
-
-    btnSetWord.addEventListener('click', () => {
-      const val = secretWordInput.value.trim().toUpperCase();
-      if (!val || !/^[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+$/i.test(val)) {
-        alert("Digite uma palavra válida (somente letras).");
-        return;
-      }
-      secretWord = val;
-      makerSection.classList.add('hidden');
-      sendPayload('SET_WORD', { wordLength: secretWord.length, word: secretWord });
-    });
-
-    function handleNetworkMessage(data) {
-      if (data.type === 'SET_WORD') {
-        secretWord = data.word;
-        renderWordDisplay();
-      }
-
-      if (data.type === 'GUESS_LETTER') {
-        const letter = data.letter;
-        guessedLetters.push(letter);
-        usedLettersList.textContent = guessedLetters.join(", ");
-
-        // Desabilita o botão da letra tentada no teclado virtual
-        const pressedKeyBtn = document.querySelector(`.key-btn[data-key="${letter}"]`);
-        if (pressedKeyBtn) {
-          pressedKeyBtn.disabled = true;
-        }
-
-        if (secretWord.includes(letter)) {
-          renderWordDisplay();
-        } else {
-          errorCount++;
-          errorsLeftSpan.textContent = MAX_ERRORS - errorCount;
-          if (errorCount >= MAX_ERRORS) {
-            endRound(false);
-          }
-        }
-      }
-    }
-
-    function renderWordDisplay() {
-      wordDisplay.innerHTML = "";
-      let hasWon = true;
-
-      for (let char of secretWord) {
-        const box = document.createElement('div');
-        box.className = 'letter-box';
-        if (guessedLetters.includes(char)) {
-          box.textContent = char;
-        } else {
-          box.textContent = "";
-          hasWon = false;
-        }
-        wordDisplay.appendChild(box);
-      }
-
-      if (hasWon && secretWord.length > 0) {
-        endRound(true);
-      }
-    }
-
-    function endRound(guesserWon) {
-      const guesser = currentMaker === 1 ? 2 : 1;
-      let winnerText = "";
-
-      if (guesserWon) {
-        winnerText = `O Jogador ${guesser} adivinhou a palavra "${secretWord}" e ganhou a rodada!`;
-        if (guesser === 1) scoreJ1++; else scoreJ2++;
-      } else {
-        winnerText = `O Jogador ${guesser} cometeu 5 erros. O Jogador ${currentMaker} ganhou o ponto! A palavra era: "${secretWord}".`;
-        if (currentMaker === 1) scoreJ1++; else scoreJ2++;
-      }
-
-      alert(winnerText);
-
-      if (currentRound < totalRounds) {
-        currentRound++;
-        currentMaker = currentMaker === 1 ? 2 : 1;
-        startRound();
-      } else {
-        let finalWinner = "";
-        if (scoreJ1 > scoreJ2) finalWinner = "Jogador 1 venceu o jogo!";
-        else if (scoreJ2 > scoreJ1) finalWinner = "Jogador 2 venceu o jogo!";
-        else finalWinner = "O jogo terminou empatado!";
-
-        alert(`Fim de jogo!\nPlacar Final: Jogador 1 (${scoreJ1}) x (${scoreJ2}) Jogador 2\n${finalWinner}`);
-        location.reload();
-      }
-    }
-
-    // REGISTRO DO SERVICE WORKER PARA SUPORTE A PWA
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(err => console.log('SW erro:', err));
-    }
-  </script>
-</body>
-</html>
+    const initialActions = document.getElementById('initial-actions');
+    const hostSetup
