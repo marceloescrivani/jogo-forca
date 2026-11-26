@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jogo da Forca PWA - Passa & Joga</title>
+  <title>Jogo da Forca PWA</title>
   <meta name="theme-color" content="#2c3e50">
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -11,18 +11,20 @@
     .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 480px; text-align: center; position: relative; }
     h1 { color: #2c3e50; margin-top: 0; font-size: 24px; }
     p { margin-bottom: 15px; color: #666; font-size: 14px; }
-    label { display: block; margin-bottom: 5px; font-weight: 600; text-align: left; }
-    .status-bar { display: flex; justify-content: space-between; background: #ecf0f1; padding: 10px 15px; border-radius: 8px; font-weight: bold; margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: 600; text-align: left; font-size: 14px; }
+    .status-bar { display: flex; justify-content: space-between; background: #ecf0f1; padding: 10px 15px; border-radius: 8px; font-weight: bold; margin-bottom: 15px; font-size: 14px; }
+    .timer-bar { background: #ffeaa7; color: #d35400; padding: 8px; border-radius: 6px; font-weight: bold; margin-bottom: 12px; font-size: 15px; }
+    .hint-box { background: #e8f4f8; color: #2980b9; padding: 10px; border-radius: 6px; font-weight: 600; margin-bottom: 15px; font-size: 14px; border: 1px dashed #3498db; }
     .word-display { display: flex; justify-content: center; gap: 8px; margin: 20px 0; flex-wrap: wrap; }
     .letter-box { width: 36px; height: 42px; border-bottom: 3px solid #2c3e50; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; text-transform: uppercase; background: #eef2f5; border-radius: 4px 4px 0 0; }
-    input[type="text"], input[type="number"] { width: 100%; padding: 12px; font-size: 18px; border: 2px solid #bdc3c7; border-radius: 6px; text-align: center; margin-bottom: 12px; text-transform: uppercase; }
+    input[type="text"], input[type="number"], select { width: 100%; padding: 12px; font-size: 16px; border: 2px solid #bdc3c7; border-radius: 6px; text-align: center; margin-bottom: 12px; background: #fff; }
     button { background-color: #27ae60; color: white; border: none; padding: 12px; font-size: 16px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; transition: background 0.2s; margin-bottom: 10px; }
     button:hover { background-color: #219150; }
     button.secondary { background-color: #2980b9; }
     button.secondary:hover { background-color: #1f6391; }
     button.danger { background-color: #c0392b; }
     button.danger:hover { background-color: #a93226; }
-    .chances { color: #c0392b; font-weight: bold; font-size: 18px; margin-bottom: 15px; }
+    .chances { color: #c0392b; font-weight: bold; font-size: 18px; margin-bottom: 10px; }
     .hidden { display: none !important; }
     .used-letters { font-size: 14px; color: #7f8c8d; margin-top: 10px; word-break: break-all; }
     
@@ -59,36 +61,65 @@
   <div class="card" id="main-card">
     <div id="error-popup-container"></div>
 
-    <h1>Jogo da Forca (Passa & Joga)</h1>
+    <h1>Jogo da Forca PWA</h1>
 
-    <!-- CONFIGURAÇÃO INICIAL DA PARTIDA -->
+    <!-- PAINEL DE CONFIGURAÇÃO INICIAL -->
     <div id="setup-section">
-      <p>Configure a partida antes de começar:</p>
+      <label for="game-mode-select">Modo de Jogo:</label>
+      <select id="game-mode-select">
+        <option value="1P">1 Jogador (Contra o Sistema)</option>
+        <option value="2P" selected>2 Jogadores (Passa & Joga)</option>
+      </select>
+
+      <div id="difficulty-group" class="hidden">
+        <label for="difficulty-select">Dificuldade:</label>
+        <select id="difficulty-select">
+          <option value="easy">Fácil (7 Erros Permitidos)</option>
+          <option value="medium" selected>Médio (5 Erros Permitidos)</option>
+          <option value="hard">Difícil (3 Erros Permitidos)</option>
+        </select>
+      </div>
+
       <label for="total-rounds-input">Quantidade de Rodadas:</label>
-      <input type="number" id="total-rounds-input" value="5" min="1" max="20" style="text-transform: none;">
+      <input type="number" id="total-rounds-input" value="5" min="1" max="20">
+
+      <label for="timer-select">Tempo limite por rodada:</label>
+      <select id="timer-select">
+        <option value="0">Sem Tempo Limite</option>
+        <option value="30">30 Segundos</option>
+        <option value="45" selected>45 Segundos</option>
+        <option value="60">60 Segundos</option>
+      </select>
+
       <button id="btn-start-game" type="button" class="secondary">Iniciar Partida</button>
     </div>
 
-    <!-- AREA DO JOGO -->
+    <!-- ÁREA DO JOGO -->
     <div id="game-container" class="hidden">
       <!-- PLACAR E RODADA -->
       <div class="status-bar">
         <span>Rodada <span id="current-round">1</span>/<span id="max-rounds">5</span></span>
-        <span>Placar: J1 (<span id="score-j1">0</span>) x (<span id="score-j2">0</span>) J2</span>
+        <span id="score-text">Placar: J1 (0) x (0) J2</span>
+      </div>
+
+      <!-- CRONÓMETRO -->
+      <div id="timer-container" class="timer-bar hidden">
+        ⏱️ Tempo restante: <span id="timer-display">0</span>s
       </div>
 
       <div id="role-turn-info" style="font-weight: 600; color: #2980b9; margin-bottom: 12px; font-size: 15px;"></div>
 
-      <!-- ETAPA 1: DIGITAR PALAVRA (VISÍVEL ENQUANTO DIGITA) -->
+      <!-- MODO 2P: ETAPA DE DIGITAR PALAVRA -->
       <div id="maker-section">
         <p style="font-size: 13px; color: #555;">Digite a palavra secreta e clique no botão para ocultar e passar o aparelho:</p>
         <input type="text" id="secret-word-input" placeholder="DIGITE A PALAVRA" autocomplete="off">
         <button id="btn-set-word" type="button">Ocultar e Passar Aparelho</button>
       </div>
 
-      <!-- ETAPA 2: ADIVINHAR PALAVRA -->
+      <!-- ETAPA DE ADIVINHAR -->
       <div id="guesser-section" class="hidden">
-        <div class="chances">Erros restantes: <span id="errors-left">5</span>/5</div>
+        <div id="hint-display" class="hint-box hidden">💡 Dica: <span id="hint-text"></span></div>
+        <div class="chances">Erros restantes: <span id="errors-left">5</span>/<span id="max-errors-display">5</span></div>
         <div class="word-display" id="word-display"></div>
 
         <!-- TECLADO VIRTUAL QWERTY -->
@@ -131,27 +162,68 @@
         <div class="used-letters">Letras tentadas: <span id="used-letters-list">-</span></div>
       </div>
 
-      <!-- BOTÃO DE ENCERRAMENTO ANTECIPADO -->
-      <button id="btn-end-game" type="button" class="danger" style="margin-top: 20px;">Encerrar Jogo e Ver Vencedor</button>
+      <button id="btn-end-game" type="button" class="danger" style="margin-top: 20px;">Encerrar Jogo</button>
     </div>
   </div>
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+      // Banco de palavras para o Modo 1 Jogador
+      const wordBank = {
+        easy: [
+          { word: "BANANA", hint: "Fruta amarela" },
+          { word: "CACHORRO", hint: "Animal de estimação" },
+          { word: "ESCOLA", hint: "Lugar de estudar" },
+          { word: "FUTEBOL", hint: "Esporte com bola" },
+          { word: "JANELA", hint: "Abertura na parede" },
+          { word: "LIVRO", hint: "Usado para leitura" }
+        ],
+        medium: [
+          { word: "COMPUTADOR", hint: "Equipamento eletrônico" },
+          { word: "GIRAFA", hint: "Animal de pescoço comprido" },
+          { word: "ALFROUXAR", hint: "Tornar menos tenso" },
+          { word: "BIBLIOTECA", hint: "Local com acervo de livros" },
+          { word: "CHOCOLATE", hint: "Doce feito de cacau" },
+          { word: "METEOROLOGIA", hint: "Estudo do tempo e clima" }
+        ],
+        hard: [
+          { word: "ARQUITETURA", hint: "Arte de projetar edifícios" },
+          { word: "ESTETOSCOPIO", hint: "Instrumento médico de ausculta" },
+          { word: "PARALELEPIPEDO", hint: "Pedra de calçamento" },
+          { word: "REIVINDICACAO", hint: "Ato de exigir um direito" },
+          { word: "INCONSTITUCIONAL", hint: "Que contraria a lei maior" }
+        ]
+      };
+
+      let gameMode = "2P";
+      let difficulty = "medium";
+      let maxErrors = 5;
       let totalRounds = 5;
       let currentRound = 1;
       let scoreJ1 = 0;
       let scoreJ2 = 0;
-      let currentMaker = 1; // 1: J1 escolhe / J2 adivinha | 2: J2 escolhe / J1 adivinha
+      let currentMaker = 1;
       let secretWord = "";
+      let currentHint = "";
       let guessedLetters = [];
       let errorCount = 0;
-      const MAX_ERRORS = 5;
+      
+      let timerSeconds = 0;
+      let timerInterval = null;
+      let timeLeft = 0;
+
+      const gameModeSelect = document.getElementById('game-mode-select');
+      const difficultyGroup = document.getElementById('difficulty-group');
+      const difficultySelect = document.getElementById('difficulty-select');
+      const totalRoundsInput = document.getElementById('total-rounds-input');
+      const timerSelect = document.getElementById('timer-select');
+      const btnStartGame = document.getElementById('btn-start-game');
 
       const setupSection = document.getElementById('setup-section');
       const gameContainer = document.getElementById('game-container');
-      const totalRoundsInput = document.getElementById('total-rounds-input');
-      const btnStartGame = document.getElementById('btn-start-game');
+      const scoreText = document.getElementById('score-text');
+      const timerContainer = document.getElementById('timer-container');
+      const timerDisplay = document.getElementById('timer-display');
 
       const roleTurnInfo = document.getElementById('role-turn-info');
       const makerSection = document.getElementById('maker-section');
@@ -159,20 +231,38 @@
       const secretWordInput = document.getElementById('secret-word-input');
       const btnSetWord = document.getElementById('btn-set-word');
       const btnEndGame = document.getElementById('btn-end-game');
+      const hintDisplay = document.getElementById('hint-display');
+      const hintText = document.getElementById('hint-text');
       const wordDisplay = document.getElementById('word-display');
       const errorsLeftSpan = document.getElementById('errors-left');
+      const maxErrorsDisplay = document.getElementById('max-errors-display');
       const usedLettersList = document.getElementById('used-letters-list');
       const errorPopupContainer = document.getElementById('error-popup-container');
 
-      // INICIAR A PARTIDA COM A QUANTIDADE DE RODADAS DEFINIDA
+      // Alterna exibição do seletor de dificuldade
+      gameModeSelect.addEventListener('change', () => {
+        if (gameModeSelect.value === "1P") {
+          difficultyGroup.classList.remove('hidden');
+        } else {
+          difficultyGroup.classList.add('hidden');
+        }
+      });
+
+      // Iniciar a partida
       btnStartGame.addEventListener('click', () => {
-        const roundsVal = parseInt(totalRoundsInput.value);
-        if (!roundsVal || roundsVal < 1) {
-          alert("Digite uma quantidade válida de rodadas (no mínimo 1).");
-          return;
+        gameMode = gameModeSelect.value;
+        difficulty = difficultySelect.value;
+        totalRounds = parseInt(totalRoundsInput.value) || 5;
+        timerSeconds = parseInt(timerSelect.value) || 0;
+
+        if (gameMode === "1P") {
+          if (difficulty === "easy") maxErrors = 7;
+          else if (difficulty === "medium") maxErrors = 5;
+          else if (difficulty === "hard") maxErrors = 3;
+        } else {
+          maxErrors = 5;
         }
 
-        totalRounds = roundsVal;
         currentRound = 1;
         scoreJ1 = 0;
         scoreJ2 = 0;
@@ -186,26 +276,53 @@
       });
 
       function startRound() {
+        clearInterval(timerInterval);
         secretWord = "";
+        currentHint = "";
         guessedLetters = [];
         errorCount = 0;
         secretWordInput.value = "";
         usedLettersList.textContent = "-";
-        errorsLeftSpan.textContent = MAX_ERRORS;
+        errorsLeftSpan.textContent = maxErrors;
+        maxErrorsDisplay.textContent = maxErrors;
 
         document.querySelectorAll('.key-btn').forEach(btn => btn.disabled = false);
-
         document.getElementById('current-round').textContent = currentRound;
-        document.getElementById('score-j1').textContent = scoreJ1;
-        document.getElementById('score-j2').textContent = scoreJ2;
+        updateScoreBoard();
 
-        roleTurnInfo.textContent = `Vez de Jogador ${currentMaker} escrever a palavra`;
+        if (gameMode === "1P") {
+          // Escolhe palavra aleatória do banco
+          const list = wordBank[difficulty];
+          const item = list[Math.floor(Math.random() * list.length)];
+          secretWord = item.word;
+          currentHint = item.hint;
 
-        makerSection.classList.remove('hidden');
-        guesserSection.classList.add('hidden');
+          makerSection.classList.add('hidden');
+          guesserSection.classList.remove('hidden');
+          hintDisplay.classList.remove('hidden');
+          hintText.textContent = currentHint;
+          roleTurnInfo.textContent = "Adivinhe a palavra secreta!";
+
+          renderWordDisplay();
+          startTimer();
+        } else {
+          // Modo 2P
+          hintDisplay.classList.add('hidden');
+          roleTurnInfo.textContent = `Vez de Jogador ${currentMaker} escrever a palavra`;
+          makerSection.classList.remove('hidden');
+          guesserSection.classList.add('hidden');
+        }
       }
 
-      // CLIQUE EM "OCULTAR E PASSAR APARELHO"
+      function updateScoreBoard() {
+        if (gameMode === "1P") {
+          scoreText.textContent = `Pontos: ${scoreJ1}`;
+        } else {
+          scoreText.textContent = `Placar: J1 (${scoreJ1}) x (${scoreJ2}) J2`;
+        }
+      }
+
+      // Modo 2P: Ocultar e passar aparelho
       btnSetWord.addEventListener('click', () => {
         const val = secretWordInput.value.trim().toUpperCase();
         if (!val || !/^[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+$/i.test(val)) {
@@ -216,15 +333,40 @@
         secretWord = val;
         const guesser = currentMaker === 1 ? 2 : 1;
         
-        // Oculta a área de digitação e exibe a tela de adivinhação com traços
         makerSection.classList.add('hidden');
         guesserSection.classList.remove('hidden');
         roleTurnInfo.textContent = `Vez de Jogador ${guesser} adivinhar!`;
 
         renderWordDisplay();
+        startTimer();
       });
 
-      // CLIQUE NO TECLADO VIRTUAL
+      // Gestão do Cronómetro
+      function startTimer() {
+        if (timerSeconds <= 0) {
+          timerContainer.classList.add('hidden');
+          return;
+        }
+
+        timerContainer.classList.remove('hidden');
+        timeLeft = timerSeconds;
+        timerDisplay.textContent = timeLeft;
+
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+          timeLeft--;
+          timerDisplay.textContent = timeLeft;
+
+          if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            showRedX();
+            alert(`O tempo acabou! A palavra era: "${secretWord}".`);
+            endRound(false);
+          }
+        }, 1000);
+      }
+
+      // Clique no Teclado Virtual
       document.querySelectorAll('.key-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.preventDefault();
@@ -242,9 +384,10 @@
             if (navigator.vibrate) navigator.vibrate(200);
 
             errorCount++;
-            errorsLeftSpan.textContent = MAX_ERRORS - errorCount;
+            errorsLeftSpan.textContent = maxErrors - errorCount;
 
-            if (errorCount >= MAX_ERRORS) {
+            if (errorCount >= maxErrors) {
+              clearInterval(timerInterval);
               setTimeout(() => endRound(false), 500);
             }
           }
@@ -269,6 +412,7 @@
         }
 
         if (hasWon && secretWord.length > 0) {
+          clearInterval(timerInterval);
           setTimeout(() => endRound(true), 400);
         }
       }
@@ -285,19 +429,28 @@
       }
 
       function endRound(guesserWon) {
+        clearInterval(timerInterval);
         const guesser = currentMaker === 1 ? 2 : 1;
         let msg = "";
 
-        if (guesserWon) {
-          msg = `Parabéns! O Jogador ${guesser} acertou a palavra "${secretWord}" e ganhou 1 ponto!`;
-          if (guesser === 1) scoreJ1++; else scoreJ2++;
+        if (gameMode === "1P") {
+          if (guesserWon) {
+            msg = `Parabéns! Você acertou a palavra "${secretWord}" e ganhou 1 ponto!`;
+            scoreJ1++;
+          } else {
+            msg = `Que pena! Você errou a palavra. A palavra era: "${secretWord}".`;
+          }
         } else {
-          msg = `Fim das tentativas! O Jogador ${guesser} errou 5 vezes e não pontuou.\nA palavra era: "${secretWord}".`;
+          if (guesserWon) {
+            msg = `Parabéns! O Jogador ${guesser} acertou a palavra "${secretWord}" e ganhou 1 ponto!`;
+            if (guesser === 1) scoreJ1++; else scoreJ2++;
+          } else {
+            msg = `Fim das tentativas! O Jogador ${guesser} errou ou o tempo acabou.\nA palavra era: "${secretWord}".`;
+          }
         }
 
         alert(msg);
 
-        // Se ainda houver rodadas restantes, avança
         if (currentRound < totalRounds) {
           currentRound++;
           currentMaker = currentMaker === 1 ? 2 : 1;
@@ -308,24 +461,26 @@
       }
 
       function finishGame() {
+        clearInterval(timerInterval);
         let winnerMsg = "";
-        if (scoreJ1 > scoreJ2) {
-          winnerMsg = "🏆 JOGADOR 1 É O CAMPEÃO!";
-        } else if (scoreJ2 > scoreJ1) {
-          winnerMsg = "🏆 JOGADOR 2 É O CAMPEÃO!";
+
+        if (gameMode === "1P") {
+          winnerMsg = `Fim da Partida!\nVocê fez ${scoreJ1} ponto(s) em ${totalRounds} rodada(s)!`;
         } else {
-          winnerMsg = "🤝 O JOGO TERMINOU EMPATADO!";
+          if (scoreJ1 > scoreJ2) winnerMsg = "🏆 JOGADOR 1 É O CAMPEÃO!";
+          else if (scoreJ2 > scoreJ1) winnerMsg = "🏆 JOGADOR 2 É O CAMPEÃO!";
+          else winnerMsg = "🤝 O JOGO TERMINOU EMPATADO!";
+
+          winnerMsg = `PARTIDA FINALIZADA!\n\nPlacar Final após ${totalRounds} rodadas:\nJogador 1: ${scoreJ1} ponto(s)\nJogador 2: ${scoreJ2} ponto(s)\n\n${winnerMsg}`;
         }
 
-        alert(`PARTIDA FINALIZADA!\n\nPlacar Final após ${totalRounds} rodada(s):\nJogador 1: ${scoreJ1} ponto(s)\nJogador 2: ${scoreJ2} ponto(s)\n\n${winnerMsg}`);
-        
-        // Retorna à tela inicial de configuração
+        alert(winnerMsg);
         gameContainer.classList.add('hidden');
         setupSection.classList.remove('hidden');
       }
 
       btnEndGame.addEventListener('click', () => {
-        if (confirm("Deseja realmente encerrar a partida agora e ver o placar final?")) {
+        if (confirm("Deseja realmente encerrar a partida agora?")) {
           finishGame();
         }
       });
