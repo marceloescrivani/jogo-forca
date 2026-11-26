@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jogo da Forca PWA</title>
+  <title>Jogo da Forca PWA - Tempo Real</title>
   <meta name="theme-color" content="#2c3e50">
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -14,7 +14,7 @@
     label { display: block; margin-bottom: 5px; font-weight: 600; text-align: left; font-size: 14px; }
     .status-bar { display: flex; justify-content: space-between; background: #ecf0f1; padding: 10px 15px; border-radius: 8px; font-weight: bold; margin-bottom: 15px; font-size: 14px; }
     .timer-bar { background: #ffeaa7; color: #d35400; padding: 8px; border-radius: 6px; font-weight: bold; margin-bottom: 12px; font-size: 15px; }
-    .hint-box { background: #e8f4f8; color: #2980b9; padding: 10px; border-radius: 6px; font-weight: 600; margin-bottom: 15px; font-size: 14px; border: 1px dashed #3498db; }
+    .hint-box { background: #e8f4f8; color: #2980b9; padding: 10px; border-radius: 6px; font-weight: 600; margin-bottom: 15px; font-size: 15px; border: 1px dashed #3498db; }
     .word-display { display: flex; justify-content: center; gap: 8px; margin: 20px 0; flex-wrap: wrap; }
     .letter-box { width: 36px; height: 42px; border-bottom: 3px solid #2c3e50; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; text-transform: uppercase; background: #eef2f5; border-radius: 4px 4px 0 0; }
     input[type="text"], input[type="number"], select { width: 100%; padding: 12px; font-size: 16px; border: 2px solid #bdc3c7; border-radius: 6px; text-align: center; margin-bottom: 12px; background: #fff; }
@@ -67,7 +67,7 @@
     <div id="setup-section">
       <label for="game-mode-select">Modo de Jogo:</label>
       <select id="game-mode-select">
-        <option value="1P_API" selected>🌐 1 Jogador (API Pública Ilimitada)</option>
+        <option value="1P_LIVE" selected>🌐 1 Jogador (Busca em Tempo Real via API)</option>
         <option value="2P">👥 2 Jogadores (Passa & Joga)</option>
       </select>
 
@@ -102,7 +102,7 @@
         <span id="score-text">Pontos: 0</span>
       </div>
 
-      <!-- CRONÓMETRO -->
+      <!-- CRONÔMETRO -->
       <div id="timer-container" class="timer-bar hidden">
         ⏱️ Tempo restante: <span id="timer-display">0</span>s
       </div>
@@ -111,14 +111,15 @@
 
       <!-- MODO 2P: ETAPA DE DIGITAR PALAVRA -->
       <div id="maker-section">
-        <p style="font-size: 13px; color: #555;">Digite a palavra secreta e clique no botão para ocultar e passar o aparelho:</p>
+        <p style="font-size: 13px; color: #555;">Digite a palavra secreta e a dica da categoria (ex: Cidade, Bairro, Animal, Peixe):</p>
         <input type="text" id="secret-word-input" placeholder="DIGITE A PALAVRA" autocomplete="off">
+        <input type="text" id="custom-hint-input" placeholder="DICA DA CATEGORIA (Ex: Cidade, Animal)" autocomplete="off">
         <button id="btn-set-word" type="button">Ocultar e Passar Aparelho</button>
       </div>
 
       <!-- ETAPA DE ADIVINHAR -->
       <div id="guesser-section" class="hidden">
-        <div id="hint-display" class="hint-box hidden">💡 Dica: <span id="hint-text">A carregar...</span></div>
+        <div id="hint-display" class="hint-box hidden">💡 Dica: <span id="hint-text">Buscando na rede...</span></div>
         <div class="chances">Erros restantes: <span id="errors-left">5</span>/<span id="max-errors-display">5</span></div>
         <div class="word-display" id="word-display"></div>
 
@@ -168,28 +169,7 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      // Banco de emergência local (caso a API ou a internet falhem)
-      const fallbackWordBank = {
-        easy: [
-          { word: "BANANA", hint: "Fruta amarela" },
-          { word: "CACHORRO", hint: "Animal de estimação" },
-          { word: "ESCOLA", hint: "Lugar de estudar" },
-          { word: "FUTEBOL", hint: "Desporto com bola" }
-        ],
-        medium: [
-          { word: "COMPUTADOR", hint: "Equipamento eletrónico" },
-          { word: "GIRAFA", hint: "Animal de pescoço comprido" },
-          { word: "CHOCOLATE", hint: "Doce feito de cacau" },
-          { word: "BIBLIOTECA", hint: "Local com acervo de livros" }
-        ],
-        hard: [
-          { word: "ARQUITETURA", hint: "Arte de projetar edifícios" },
-          { word: "ESTETOSCOPIO", hint: "Instrumento médico" },
-          { word: "PARALELEPIPEDO", hint: "Pedra de calçamento" }
-        ]
-      };
-
-      let gameMode = "1P_API";
+      let gameMode = "1P_LIVE";
       let difficulty = "medium";
       let maxErrors = 5;
       let totalRounds = 5;
@@ -223,6 +203,7 @@
       const makerSection = document.getElementById('maker-section');
       const guesserSection = document.getElementById('guesser-section');
       const secretWordInput = document.getElementById('secret-word-input');
+      const customHintInput = document.getElementById('custom-hint-input');
       const btnSetWord = document.getElementById('btn-set-word');
       const btnEndGame = document.getElementById('btn-end-game');
       const hintDisplay = document.getElementById('hint-display');
@@ -234,7 +215,7 @@
       const errorPopupContainer = document.getElementById('error-popup-container');
 
       gameModeSelect.addEventListener('change', () => {
-        if (gameModeSelect.value === "1P_API") {
+        if (gameModeSelect.value === "1P_LIVE") {
           difficultyGroup.classList.remove('hidden');
         } else {
           difficultyGroup.classList.add('hidden');
@@ -247,7 +228,7 @@
         totalRounds = parseInt(totalRoundsInput.value) || 5;
         timerSeconds = parseInt(timerSelect.value) || 0;
 
-        if (gameMode === "1P_API") {
+        if (gameMode === "1P_LIVE") {
           if (difficulty === "easy") maxErrors = 7;
           else if (difficulty === "medium") maxErrors = 5;
           else if (difficulty === "hard") maxErrors = 3;
@@ -267,30 +248,42 @@
         startRound();
       });
 
-      // Busca palavra aleatória em API pública de vocabulário
-      async function fetchPublicWord() {
+      // BUSCA EM TEMPO REAL VIA API DE DICIONÁRIO PÚBLICA
+      async function fetchLiveWordFromAPI() {
         try {
-          // Utiliza a API pública Dicio/Palavras aleatórias sem necessidade de chave
-          const response = await fetch("https://api.dicionario-aberto.net/random");
-          if (!response.ok) throw new Error("Erro na API");
-          const data = await response.json();
-          let word = data.word.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          const res = await fetch("https://api.dicionario-aberto.net/random");
+          const data = await res.json();
           
-          // Validação do tamanho da palavra consoante a dificuldade
-          const minLen = difficulty === "easy" ? 4 : (difficulty === "medium" ? 6 : 9);
-          const maxLen = difficulty === "easy" ? 6 : (difficulty === "medium" ? 9 : 15);
+          let rawWord = data.word.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-          if (word.length < minLen || word.length > maxLen || !/^[A-Z]+$/.test(word)) {
-            // Se a palavra não encaixar na dificuldade ou tiver carateres estranhos, tenta de novo
-            return await fetchPublicWord();
+          // Filtra tamanho de palavra de acordo com a dificuldade
+          const minLen = difficulty === "easy" ? 4 : (difficulty === "medium" ? 6 : 9);
+          const maxLen = difficulty === "easy" ? 6 : (difficulty === "medium" ? 9 : 14);
+
+          if (rawWord.length < minLen || rawWord.length > maxLen || !/^[A-Z]+$/.test(rawWord)) {
+            return await fetchLiveWordFromAPI(); // Tenta outra se não atender os critérios
           }
 
-          let hint = `Palavra de ${word.length} letras`;
-          return { word, hint };
+          // Busca detalhes gramaticais da palavra para montar a dica
+          let hintCategory = "Palavra em Português";
+          try {
+            const detailRes = await fetch(`https://api.dicionario-aberto.net/word/${data.word.toLowerCase()}`);
+            const detailData = await detailRes.json();
+            if (detailData && detailData[0] && detailData[0].xml) {
+              const xmlText = detailData[0].xml;
+              if (xmlText.includes("gramgrp")) {
+                const match = xmlText.match(/<gramgrp>(.*?)<\/gramgrp>/);
+                if (match) hintCategory = `Classe: ${match[1].replace(/<[^>]+>/g, '').trim()}`;
+              }
+            }
+          } catch (e) {
+            hintCategory = `Palavra de ${rawWord.length} letras`;
+          }
+
+          return { word: rawWord, hint: hintCategory };
         } catch (err) {
-          // Se falhar o acesso à API pública (ex: sem rede), recorre ao banco local
-          const list = fallbackWordBank[difficulty];
-          return list[Math.floor(Math.random() * list.length)];
+          // Se houver falha de rede na API, gera um fallback temporário de rede
+          return { word: "TECNOLOGIA", hint: "Categoria: Informática" };
         }
       }
 
@@ -301,6 +294,7 @@
         guessedLetters = [];
         errorCount = 0;
         secretWordInput.value = "";
+        customHintInput.value = "";
         usedLettersList.textContent = "-";
         errorsLeftSpan.textContent = maxErrors;
         maxErrorsDisplay.textContent = maxErrors;
@@ -309,15 +303,15 @@
         document.getElementById('current-round').textContent = currentRound;
         updateScoreBoard();
 
-        if (gameMode === "1P_API") {
+        if (gameMode === "1P_LIVE") {
           makerSection.classList.add('hidden');
           guesserSection.classList.remove('hidden');
           hintDisplay.classList.remove('hidden');
-          hintText.textContent = "A obter nova palavra da rede...";
-          wordDisplay.innerHTML = "A carregar...";
+          hintText.textContent = "Buscando palavra na API em tempo real...";
+          wordDisplay.innerHTML = "Carregando...";
           roleTurnInfo.textContent = "Adivinhe a palavra!";
 
-          const result = await fetchPublicWord();
+          const result = await fetchLiveWordFromAPI();
           secretWord = result.word;
           currentHint = result.hint;
           hintText.textContent = currentHint;
@@ -327,14 +321,14 @@
         } else {
           // Modo 2P
           hintDisplay.classList.add('hidden');
-          roleTurnInfo.textContent = `Vez de Jogador ${currentMaker} escrever a palavra`;
+          roleTurnInfo.textContent = `Vez de Jogador ${currentMaker} escrever a palavra e categoria`;
           makerSection.classList.remove('hidden');
           guesserSection.classList.add('hidden');
         }
       }
 
       function updateScoreBoard() {
-        if (gameMode === "1P_API") {
+        if (gameMode === "1P_LIVE") {
           scoreText.textContent = `Pontos: ${scoreJ1}`;
         } else {
           scoreText.textContent = `Placar: J1 (${scoreJ1}) x (${scoreJ2}) J2`;
@@ -343,16 +337,22 @@
 
       btnSetWord.addEventListener('click', () => {
         const val = secretWordInput.value.trim().toUpperCase();
+        const hintVal = customHintInput.value.trim();
+
         if (!val || !/^[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+$/i.test(val)) {
-          alert("Por favor, digite apenas letras.");
+          alert("Por favor, digite apenas letras para a palavra.");
           return;
         }
 
-        secretWord = val;
+        secretWord = val.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        currentHint = hintVal ? hintVal : "Palavra Secreta";
+
         const guesser = currentMaker === 1 ? 2 : 1;
         
         makerSection.classList.add('hidden');
         guesserSection.classList.remove('hidden');
+        hintDisplay.classList.remove('hidden');
+        hintText.textContent = currentHint;
         roleTurnInfo.textContent = `Vez de Jogador ${guesser} adivinhar!`;
 
         renderWordDisplay();
@@ -449,7 +449,7 @@
         const guesser = currentMaker === 1 ? 2 : 1;
         let msg = "";
 
-        if (gameMode === "1P_API") {
+        if (gameMode === "1P_LIVE") {
           if (guesserWon) {
             msg = `Parabéns! Acertou na palavra "${secretWord}" e ganhou 1 ponto!`;
             scoreJ1++;
@@ -480,7 +480,7 @@
         clearInterval(timerInterval);
         let winnerMsg = "";
 
-        if (gameMode === "1P_API") {
+        if (gameMode === "1P_LIVE") {
           winnerMsg = `Fim da Partida!\nFez ${scoreJ1} ponto(s) em ${totalRounds} rodada(s)!`;
         } else {
           if (scoreJ1 > scoreJ2) winnerMsg = "🏆 JOGADOR 1 É O CAMPEÃO!";
