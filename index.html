@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jogo da Forca PWA - Tempo Real</title>
+  <title>Jogo da Forca PWA - Categorias em Tempo Real</title>
   <meta name="theme-color" content="#2c3e50">
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -67,16 +67,28 @@
     <div id="setup-section">
       <label for="game-mode-select">Modo de Jogo:</label>
       <select id="game-mode-select">
-        <option value="1P_LIVE" selected>🌐 1 Jogador (Busca em Tempo Real via API)</option>
+        <option value="1P_LIVE" selected>🌐 1 Jogador (Busca em Tempo Real)</option>
         <option value="2P">👥 2 Jogadores (Passa & Joga)</option>
       </select>
+
+      <div id="category-group">
+        <label for="category-select">Escolha a Categoria (1P):</label>
+        <select id="category-select">
+          <option value="RANDOM">🎲 Aleatória (Todas as Fontes)</option>
+          <option value="CITIES">🏙️ Cidades Brasileiras (IBGE API)</option>
+          <option value="COUNTRIES">🌍 Países (REST Countries API)</option>
+          <option value="ANIMALS">🐾 Animais (GBIF Taxonomy API)</option>
+          <option value="PLANTS">🌿 Plantas (GBIF Taxonomy API)</option>
+          <option value="DICTIONARY">📖 Dicionário Geral (Dicionário Aberto API)</option>
+        </select>
+      </div>
 
       <div id="difficulty-group">
         <label for="difficulty-select">Dificuldade:</label>
         <select id="difficulty-select">
-          <option value="easy">Fácil (7 Erros - Palavras Curtas)</option>
-          <option value="medium" selected>Médio (5 Erros - Palavras Médias)</option>
-          <option value="hard">Difícil (3 Erros - Palavras Longas)</option>
+          <option value="easy">Fácil (7 Erros)</option>
+          <option value="medium" selected>Médio (5 Erros)</option>
+          <option value="hard">Difícil (3 Erros)</option>
         </select>
       </div>
 
@@ -111,15 +123,15 @@
 
       <!-- MODO 2P: ETAPA DE DIGITAR PALAVRA -->
       <div id="maker-section">
-        <p style="font-size: 13px; color: #555;">Digite a palavra secreta e a dica da categoria (ex: Cidade, Bairro, Animal, Peixe):</p>
+        <p style="font-size: 13px; color: #555;">Digite a palavra secreta e a dica da categoria:</p>
         <input type="text" id="secret-word-input" placeholder="DIGITE A PALAVRA" autocomplete="off">
-        <input type="text" id="custom-hint-input" placeholder="DICA DA CATEGORIA (Ex: Cidade, Animal)" autocomplete="off">
+        <input type="text" id="custom-hint-input" placeholder="DICA DA CATEGORIA (Ex: Cidade, Bairro)" autocomplete="off">
         <button id="btn-set-word" type="button">Ocultar e Passar Aparelho</button>
       </div>
 
       <!-- ETAPA DE ADIVINHAR -->
       <div id="guesser-section" class="hidden">
-        <div id="hint-display" class="hint-box hidden">💡 Dica: <span id="hint-text">Buscando na rede...</span></div>
+        <div id="hint-display" class="hint-box hidden">💡 Dica da Categoria: <span id="hint-text">Buscando na API...</span></div>
         <div class="chances">Erros restantes: <span id="errors-left">5</span>/<span id="max-errors-display">5</span></div>
         <div class="word-display" id="word-display"></div>
 
@@ -170,6 +182,7 @@
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       let gameMode = "1P_LIVE";
+      let selectedCategory = "RANDOM";
       let difficulty = "medium";
       let maxErrors = 5;
       let totalRounds = 5;
@@ -187,6 +200,8 @@
       let timeLeft = 0;
 
       const gameModeSelect = document.getElementById('game-mode-select');
+      const categoryGroup = document.getElementById('category-group');
+      const categorySelect = document.getElementById('category-select');
       const difficultyGroup = document.getElementById('difficulty-group');
       const difficultySelect = document.getElementById('difficulty-select');
       const totalRoundsInput = document.getElementById('total-rounds-input');
@@ -216,14 +231,17 @@
 
       gameModeSelect.addEventListener('change', () => {
         if (gameModeSelect.value === "1P_LIVE") {
+          categoryGroup.classList.remove('hidden');
           difficultyGroup.classList.remove('hidden');
         } else {
+          categoryGroup.classList.add('hidden');
           difficultyGroup.classList.add('hidden');
         }
       });
 
       btnStartGame.addEventListener('click', () => {
         gameMode = gameModeSelect.value;
+        selectedCategory = categorySelect.value;
         difficulty = difficultySelect.value;
         totalRounds = parseInt(totalRoundsInput.value) || 5;
         timerSeconds = parseInt(timerSelect.value) || 0;
@@ -248,42 +266,94 @@
         startRound();
       });
 
-      // BUSCA EM TEMPO REAL VIA API DE DICIONÁRIO PÚBLICA
-      async function fetchLiveWordFromAPI() {
-        try {
-          const res = await fetch("https://api.dicionario-aberto.net/random");
-          const data = await res.json();
-          
-          let rawWord = data.word.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      // --- INTEGRAÇÕES DE APIS EM TEMPO REAL ---
 
-          // Filtra tamanho de palavra de acordo com a dificuldade
-          const minLen = difficulty === "easy" ? 4 : (difficulty === "medium" ? 6 : 9);
-          const maxLen = difficulty === "easy" ? 6 : (difficulty === "medium" ? 9 : 14);
+      // 1. API IBGE (Cidades Brasileiras)
+      async function fetchCityFromIBGE() {
+        const res = await fetch("https://servicodados.ibge.gov.br/api/v1/localidades/municipios");
+        const cities = await res.json();
+        const item = cities[Math.floor(Math.random() * cities.length)];
+        const cleanName = item.nome.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, "");
+        if (cleanName.length < 3 || cleanName.length > 15) return await fetchCityFromIBGE();
+        return { word: cleanName, hint: "Nome de Cidade Brasileira (IBGE)" };
+      }
 
-          if (rawWord.length < minLen || rawWord.length > maxLen || !/^[A-Z]+$/.test(rawWord)) {
-            return await fetchLiveWordFromAPI(); // Tenta outra se não atender os critérios
-          }
+      // 2. API REST Countries (Países)
+      async function fetchCountryFromREST() {
+        const res = await fetch("https://restcountries.com/v3.1/all?fields=translations");
+        const countries = await res.json();
+        const item = countries[Math.floor(Math.random() * countries.length)];
+        const countryName = item.translations.por.common;
+        const cleanName = countryName.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, "");
+        if (cleanName.length < 3 || cleanName.length > 15) return await fetchCountryFromREST();
+        return { word: cleanName, hint: "Nome de País" };
+      }
 
-          // Busca detalhes gramaticais da palavra para montar a dica
-          let hintCategory = "Palavra em Português";
-          try {
-            const detailRes = await fetch(`https://api.dicionario-aberto.net/word/${data.word.toLowerCase()}`);
-            const detailData = await detailRes.json();
-            if (detailData && detailData[0] && detailData[0].xml) {
-              const xmlText = detailData[0].xml;
-              if (xmlText.includes("gramgrp")) {
-                const match = xmlText.match(/<gramgrp>(.*?)<\/gramgrp>/);
-                if (match) hintCategory = `Classe: ${match[1].replace(/<[^>]+>/g, '').trim()}`;
+      // 3. API GBIF (Animais ou Plantas por Taxonomia)
+      async function fetchBioFromGBIF(kingdomKey) {
+        // kingdomKey: 1 = Animalia (Animais), 6 = Plantae (Plantas)
+        const offset = Math.floor(Math.random() * 800);
+        const res = await fetch(`https://api.gbif.org/v1/species/search?highertaxon_key=${kingdomKey}&limit=20&offset=${offset}`);
+        const data = await res.json();
+
+        if (data.results && data.results.length > 0) {
+          for (let item of data.results) {
+            if (item.vernacularNames && item.vernacularNames.length > 0) {
+              const ptName = item.vernacularNames.find(v => v.language === "por" || v.language === "pt");
+              if (ptName && ptName.vernacularName) {
+                const cleanName = ptName.vernacularName.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, "");
+                if (cleanName.length >= 3 && cleanName.length <= 15) {
+                  return { word: cleanName, hint: kingdomKey === 1 ? "Nome de Animal" : "Nome de Planta" };
+                }
               }
             }
-          } catch (e) {
-            hintCategory = `Palavra de ${rawWord.length} letras`;
+            if (item.canonicalName) {
+              const cleanName = item.canonicalName.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, "");
+              if (cleanName.length >= 3 && cleanName.length <= 14) {
+                return { word: cleanName, hint: kingdomKey === 1 ? "Nome de Espécie Animal" : "Nome de Espécie Vegetal" };
+              }
+            }
           }
+        }
+        return await fetchBioFromGBIF(kingdomKey);
+      }
 
-          return { word: rawWord, hint: hintCategory };
+      // 4. API Dicionário Aberto (Palavras Gerais)
+      async function fetchDictionaryWord() {
+        const res = await fetch("https://api.dicionario-aberto.net/random");
+        const data = await res.json();
+        const cleanName = data.word.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, "");
+
+        const minLen = difficulty === "easy" ? 4 : (difficulty === "medium" ? 6 : 9);
+        const maxLen = difficulty === "easy" ? 6 : (difficulty === "medium" ? 9 : 14);
+
+        if (cleanName.length < minLen || cleanName.length > maxLen) {
+          return await fetchDictionaryWord();
+        }
+
+        return { word: cleanName, hint: `Palavra de ${cleanName.length} letras` };
+      }
+
+      // ROTEADOR DE CATEGORIAS
+      async function fetchWordByCategory(category) {
+        let cat = category;
+        if (cat === "RANDOM") {
+          const catList = ["CITIES", "COUNTRIES", "ANIMALS", "PLANTS", "DICTIONARY"];
+          cat = catList[Math.floor(Math.random() * catList.length)];
+        }
+
+        try {
+          switch (cat) {
+            case "CITIES": return await fetchCityFromIBGE();
+            case "COUNTRIES": return await fetchCountryFromREST();
+            case "ANIMALS": return await fetchBioFromGBIF(1);
+            case "PLANTS": return await fetchBioFromGBIF(6);
+            case "DICTIONARY": return await fetchDictionaryWord();
+            default: return await fetchCityFromIBGE();
+          }
         } catch (err) {
-          // Se houver falha de rede na API, gera um fallback temporário de rede
-          return { word: "TECNOLOGIA", hint: "Categoria: Informática" };
+          console.warn("Falha de rede na API. Aplicando fallback...", err);
+          return { word: "BRASIL", hint: "Nome de País (Fallback)" };
         }
       }
 
@@ -307,11 +377,11 @@
           makerSection.classList.add('hidden');
           guesserSection.classList.remove('hidden');
           hintDisplay.classList.remove('hidden');
-          hintText.textContent = "Buscando palavra na API em tempo real...";
+          hintText.textContent = "Buscando palavra na API selecionada...";
           wordDisplay.innerHTML = "Carregando...";
           roleTurnInfo.textContent = "Adivinhe a palavra!";
 
-          const result = await fetchLiveWordFromAPI();
+          const result = await fetchWordByCategory(selectedCategory);
           secretWord = result.word;
           currentHint = result.hint;
           hintText.textContent = currentHint;
