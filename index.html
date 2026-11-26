@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jogo da Forca PWA</title>
+  <title>Jogo da Forca PWA com IA</title>
   <meta name="theme-color" content="#2c3e50">
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -22,6 +22,8 @@
     button:hover { background-color: #219150; }
     button.secondary { background-color: #2980b9; }
     button.secondary:hover { background-color: #1f6391; }
+    button.ai-btn { background-color: #8e44ad; }
+    button.ai-btn:hover { background-color: #732d91; }
     button.danger { background-color: #c0392b; }
     button.danger:hover { background-color: #a93226; }
     .chances { color: #c0392b; font-weight: bold; font-size: 18px; margin-bottom: 10px; }
@@ -34,7 +36,7 @@
     .key-btn { background-color: #2c3e50; color: white; border: none; padding: 10px 0; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; flex: 1; max-width: 38px; margin-bottom: 0; }
     .key-btn:disabled { background-color: #bdc3c7 !important; color: #7f8c8d; cursor: not-allowed; opacity: 0.6; }
 
-    /* ANIMAÇÃO DO X VERMELHO */
+    /* ANIMACAO X VERMELHO */
     .error-popup {
       position: absolute;
       top: 50%;
@@ -55,6 +57,15 @@
       100% { opacity: 0; transform: translate(-50%, -50%) scale(1.4); }
     }
   </style>
+
+  <!-- SDK NATIVO GEMINI API PARA GERAÇÃO ILIMITADA -->
+  <script type="importmap">
+    {
+      "imports": {
+        "@google/genai": "https://esm.run/@google/genai"
+      }
+    }
+  </script>
 </head>
 <body>
 
@@ -63,15 +74,21 @@
 
     <h1>Jogo da Forca PWA</h1>
 
-    <!-- PAINEL DE CONFIGURAÇÃO INICIAL -->
+    <!-- CONFIGURAÇÃO INICIAL -->
     <div id="setup-section">
       <label for="game-mode-select">Modo de Jogo:</label>
       <select id="game-mode-select">
-        <option value="1P">1 Jogador (Contra o Sistema)</option>
-        <option value="2P" selected>2 Jogadores (Passa & Joga)</option>
+        <option value="1P_AI" selected>🤖 1 Jogador (Palavras Ilimitadas com IA)</option>
+        <option value="1P_LOCAL">1 Jogador (Palavras Locais)</option>
+        <option value="2P">2 Jogadores (Passa & Joga)</option>
       </select>
 
-      <div id="difficulty-group" class="hidden">
+      <div id="ai-key-group">
+        <label for="api-key-input">Chave Gemini API (Opcional):</label>
+        <input type="text" id="api-key-input" placeholder="Cole sua API Key aqui (se tiver)" style="text-transform: none; font-size: 13px;">
+      </div>
+
+      <div id="difficulty-group">
         <label for="difficulty-select">Dificuldade:</label>
         <select id="difficulty-select">
           <option value="easy">Fácil (7 Erros Permitidos)</option>
@@ -91,7 +108,7 @@
         <option value="60">60 Segundos</option>
       </select>
 
-      <button id="btn-start-game" type="button" class="secondary">Iniciar Partida</button>
+      <button id="btn-start-game" type="button" class="ai-btn">Iniciar Partida</button>
     </div>
 
     <!-- ÁREA DO JOGO -->
@@ -99,7 +116,7 @@
       <!-- PLACAR E RODADA -->
       <div class="status-bar">
         <span>Rodada <span id="current-round">1</span>/<span id="max-rounds">5</span></span>
-        <span id="score-text">Placar: J1 (0) x (0) J2</span>
+        <span id="score-text">Pontos: 0</span>
       </div>
 
       <!-- CRONÓMETRO -->
@@ -118,7 +135,7 @@
 
       <!-- ETAPA DE ADIVINHAR -->
       <div id="guesser-section" class="hidden">
-        <div id="hint-display" class="hint-box hidden">💡 Dica: <span id="hint-text"></span></div>
+        <div id="hint-display" class="hint-box hidden">💡 Dica: <span id="hint-text">Carregando...</span></div>
         <div class="chances">Erros restantes: <span id="errors-left">5</span>/<span id="max-errors-display">5</span></div>
         <div class="word-display" id="word-display"></div>
 
@@ -166,36 +183,30 @@
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    import { GoogleGenAI } from "@google/genai";
+
     document.addEventListener('DOMContentLoaded', () => {
-      // Banco de palavras para o Modo 1 Jogador
-      const wordBank = {
+      // Banco Local de Fallback
+      const localWordBank = {
         easy: [
           { word: "BANANA", hint: "Fruta amarela" },
           { word: "CACHORRO", hint: "Animal de estimação" },
-          { word: "ESCOLA", hint: "Lugar de estudar" },
-          { word: "FUTEBOL", hint: "Esporte com bola" },
-          { word: "JANELA", hint: "Abertura na parede" },
-          { word: "LIVRO", hint: "Usado para leitura" }
+          { word: "ESCOLA", hint: "Lugar de estudar" }
         ],
         medium: [
           { word: "COMPUTADOR", hint: "Equipamento eletrônico" },
           { word: "GIRAFA", hint: "Animal de pescoço comprido" },
-          { word: "ALFROUXAR", hint: "Tornar menos tenso" },
-          { word: "BIBLIOTECA", hint: "Local com acervo de livros" },
-          { word: "CHOCOLATE", hint: "Doce feito de cacau" },
-          { word: "METEOROLOGIA", hint: "Estudo do tempo e clima" }
+          { word: "CHOCOLATE", hint: "Doce feito de cacau" }
         ],
         hard: [
           { word: "ARQUITETURA", hint: "Arte de projetar edifícios" },
-          { word: "ESTETOSCOPIO", hint: "Instrumento médico de ausculta" },
-          { word: "PARALELEPIPEDO", hint: "Pedra de calçamento" },
-          { word: "REIVINDICACAO", hint: "Ato de exigir um direito" },
-          { word: "INCONSTITUCIONAL", hint: "Que contraria a lei maior" }
+          { word: "ESTETOSCOPIO", hint: "Instrumento médico" },
+          { word: "PARALELEPIPEDO", hint: "Pedra de calçamento" }
         ]
       };
 
-      let gameMode = "2P";
+      let gameMode = "1P_AI";
       let difficulty = "medium";
       let maxErrors = 5;
       let totalRounds = 5;
@@ -213,6 +224,8 @@
       let timeLeft = 0;
 
       const gameModeSelect = document.getElementById('game-mode-select');
+      const aiKeyGroup = document.getElementById('ai-key-group');
+      const apiKeyInput = document.getElementById('api-key-input');
       const difficultyGroup = document.getElementById('difficulty-group');
       const difficultySelect = document.getElementById('difficulty-select');
       const totalRoundsInput = document.getElementById('total-rounds-input');
@@ -239,23 +252,27 @@
       const usedLettersList = document.getElementById('used-letters-list');
       const errorPopupContainer = document.getElementById('error-popup-container');
 
-      // Alterna exibição do seletor de dificuldade
       gameModeSelect.addEventListener('change', () => {
-        if (gameModeSelect.value === "1P") {
+        const val = gameModeSelect.value;
+        if (val === "1P_AI") {
+          aiKeyGroup.classList.remove('hidden');
+          difficultyGroup.classList.remove('hidden');
+        } else if (val === "1P_LOCAL") {
+          aiKeyGroup.classList.add('hidden');
           difficultyGroup.classList.remove('hidden');
         } else {
+          aiKeyGroup.classList.add('hidden');
           difficultyGroup.classList.add('hidden');
         }
       });
 
-      // Iniciar a partida
       btnStartGame.addEventListener('click', () => {
         gameMode = gameModeSelect.value;
         difficulty = difficultySelect.value;
         totalRounds = parseInt(totalRoundsInput.value) || 5;
         timerSeconds = parseInt(timerSelect.value) || 0;
 
-        if (gameMode === "1P") {
+        if (gameMode !== "2P") {
           if (difficulty === "easy") maxErrors = 7;
           else if (difficulty === "medium") maxErrors = 5;
           else if (difficulty === "hard") maxErrors = 3;
@@ -275,7 +292,39 @@
         startRound();
       });
 
-      function startRound() {
+      async function fetchWordFromAI() {
+        const customKey = apiKeyInput.value.trim();
+        const apiKey = customKey || window.GEMINI_API_KEY || "";
+
+        if (!apiKey) {
+          // Usa Fallback Local se não houver chave definida
+          const list = localWordBank[difficulty];
+          return list[Math.floor(Math.random() * list.length)];
+        }
+
+        try {
+          const ai = new GoogleGenAI({ apiKey });
+          const prompt = `Gere 1 palavra única em português para um jogo da forca de nível ${difficulty} e uma dica curta. Responda ESTRITAMENTE em formato JSON puro: {"word": "PALAVRA", "hint": "Dica curta"}`;
+          
+          const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+          });
+
+          const text = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+          const parsed = JSON.parse(text);
+          return {
+            word: parsed.word.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+            hint: parsed.hint
+          };
+        } catch (err) {
+          console.warn("Falha na chamada IA. Usando palavras locais...", err);
+          const list = localWordBank[difficulty];
+          return list[Math.floor(Math.random() * list.length)];
+        }
+      }
+
+      async function startRound() {
         clearInterval(timerInterval);
         secretWord = "";
         currentHint = "";
@@ -290,9 +339,23 @@
         document.getElementById('current-round').textContent = currentRound;
         updateScoreBoard();
 
-        if (gameMode === "1P") {
-          // Escolhe palavra aleatória do banco
-          const list = wordBank[difficulty];
+        if (gameMode === "1P_AI") {
+          makerSection.classList.add('hidden');
+          guesserSection.classList.remove('hidden');
+          hintDisplay.classList.remove('hidden');
+          hintText.textContent = "Buscando nova palavra com IA...";
+          wordDisplay.innerHTML = "Aguarde...";
+          roleTurnInfo.textContent = "Adivinhe a palavra da IA!";
+
+          const result = await fetchWordFromAI();
+          secretWord = result.word;
+          currentHint = result.hint;
+          hintText.textContent = currentHint;
+
+          renderWordDisplay();
+          startTimer();
+        } else if (gameMode === "1P_LOCAL") {
+          const list = localWordBank[difficulty];
           const item = list[Math.floor(Math.random() * list.length)];
           secretWord = item.word;
           currentHint = item.hint;
@@ -301,7 +364,7 @@
           guesserSection.classList.remove('hidden');
           hintDisplay.classList.remove('hidden');
           hintText.textContent = currentHint;
-          roleTurnInfo.textContent = "Adivinhe a palavra secreta!";
+          roleTurnInfo.textContent = "Adivinhe a palavra!";
 
           renderWordDisplay();
           startTimer();
@@ -315,14 +378,13 @@
       }
 
       function updateScoreBoard() {
-        if (gameMode === "1P") {
+        if (gameMode !== "2P") {
           scoreText.textContent = `Pontos: ${scoreJ1}`;
         } else {
           scoreText.textContent = `Placar: J1 (${scoreJ1}) x (${scoreJ2}) J2`;
         }
       }
 
-      // Modo 2P: Ocultar e passar aparelho
       btnSetWord.addEventListener('click', () => {
         const val = secretWordInput.value.trim().toUpperCase();
         if (!val || !/^[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+$/i.test(val)) {
@@ -341,7 +403,6 @@
         startTimer();
       });
 
-      // Gestão do Cronómetro
       function startTimer() {
         if (timerSeconds <= 0) {
           timerContainer.classList.add('hidden');
@@ -366,7 +427,6 @@
         }, 1000);
       }
 
-      // Clique no Teclado Virtual
       document.querySelectorAll('.key-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.preventDefault();
@@ -433,19 +493,19 @@
         const guesser = currentMaker === 1 ? 2 : 1;
         let msg = "";
 
-        if (gameMode === "1P") {
+        if (gameMode !== "2P") {
           if (guesserWon) {
             msg = `Parabéns! Você acertou a palavra "${secretWord}" e ganhou 1 ponto!`;
             scoreJ1++;
           } else {
-            msg = `Que pena! Você errou a palavra. A palavra era: "${secretWord}".`;
+            msg = `Que pena! A palavra era: "${secretWord}".`;
           }
         } else {
           if (guesserWon) {
             msg = `Parabéns! O Jogador ${guesser} acertou a palavra "${secretWord}" e ganhou 1 ponto!`;
             if (guesser === 1) scoreJ1++; else scoreJ2++;
           } else {
-            msg = `Fim das tentativas! O Jogador ${guesser} errou ou o tempo acabou.\nA palavra era: "${secretWord}".`;
+            msg = `Fim das tentativas! A palavra era: "${secretWord}".`;
           }
         }
 
@@ -464,7 +524,7 @@
         clearInterval(timerInterval);
         let winnerMsg = "";
 
-        if (gameMode === "1P") {
+        if (gameMode !== "2P") {
           winnerMsg = `Fim da Partida!\nVocê fez ${scoreJ1} ponto(s) em ${totalRounds} rodada(s)!`;
         } else {
           if (scoreJ1 > scoreJ2) winnerMsg = "🏆 JOGADOR 1 É O CAMPEÃO!";
